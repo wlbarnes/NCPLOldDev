@@ -1,0 +1,5 @@
+frmKeywordChange = 110, 41, 751, 448, C, -3, 22, 544, 470, C
+frmKeywordThesaurusChange = 44, 44, 724, 400, C, 66, 66, 613, 514, C
+frmEditKeywords = 220, 220, 729, 668, , -18, 6, 491, 454, C
+frmAddThesaurus = 110, 110, 646, 558, , 66, 66, 602, 514, C
+frmThesaurusEntry = 132, 132, 598, 580, C, 110, 110, 576, 558, C

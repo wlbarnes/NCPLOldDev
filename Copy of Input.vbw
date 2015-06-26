@@ -1,0 +1,4 @@
+frmMain = 22, 22, 832, 595, , 0, 0, 0, 0, C
+frmNewJournal = 0, 0, 0, 0, C, 0, 0, 0, 0, C
+frmNewAuthor = 0, 0, 0, 0, C, 0, 0, 0, 0, C
+frmKeywordThesaurus = 0, 0, 0, 0, C, 44, 44, 1281, 792, C

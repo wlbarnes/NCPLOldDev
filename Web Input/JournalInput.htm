@@ -1,0 +1,313 @@
+<html><!-- #BeginTemplate "/Templates/allpages.dwt" -->
+<head>
+<!-- #BeginEditable "doctitle" --> 
+<title>NCPL Database Simple Search</title>
+<!-- #EndEditable -->
+<META http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<meta name="keywords" content="ncpl, NCPL, centers of law, centers of philanthropy, philanthropy, philanthropic community, philanthropy laws, philanthropy legislation, academic, New York University, New York University SChool of Law, NYU, nyu, nonprofit legislation, nonprofits, nonprofit organizations, nonprofit communities, nonprofit law, legal issues, charities, charitable organizations, charitable donations, charitable giving, law research, scholarly research, legal issues, tax exempt organizations, Harvey P. Dale, research assistants, Law Library, NYU Law Library, Nonprofit Legal Bibliography Project, fellowships, Rockefeller Brothers Fund, law school graduates">
+<!-- #BeginEditable "astyle" --> 
+<style type="text/css">
+<!--
+a {color: 336699; font-weight: bold; text-decoration: none}
+a:hover {color: #00FF00;}
+-->
+</style>
+<!-- #EndEditable -->
+<meta name="description" content="The National Center on Philanthropy and the Law at the New York University School of Law studies the nation's nonprofit sector's legal issues, and sponsors research into philanthropy law.">
+<style fprolloverstyle>A:hover {color: #008080; font-weight: bold}
+</style>
+<script language="Javascript">
+	
+	function popWindow() {
+	var theURL = 'file:///d:/iisapp/searching.htm';
+	var width  = 300;
+	var height = 50;
+	var doPopUpX = (screen.width/2)-150;
+	var doPopUpY = (screen.height/2)-200;
+	
+	newWindow = window.open(theURL,'newWindow','toolbar=no,menubar=no,resizable=no,scrollbars=no,status=no,location=no,width='+width+',height='+height,screenX=doPopUpX, screenY=doPopUpY);
+	}
+	
+	function startFocus() {
+		document.mainForm.SearchFor.focus();
+	}
+	function validateForm()
+	{
+	var SearchText=document.mainForm.SearchFor.value
+	var SearchTextLength=SearchText.length
+	var i
+	var RightParenCount=0
+	var LeftParenCount=0
+	
+	//alert(ParenCount)
+	//alert(SearchText + SearchTextLength)
+	if (document.mainForm.SearchFor.value=="")
+		{
+		alert('Please enter search terms before submitting.');
+		document.mainForm.SearchFor.focus();
+		return false;
+		}
+	
+		else
+		{
+		//alert(SearchTextLength)
+		for (i=0; i<=SearchTextLength; i++)
+			{
+			//document.write(i)
+			if (SearchText.charAt(i)=="(") LeftParenCount++;
+			if (SearchText.charAt(i)==")") RightParenCount++;
+			}
+		//alert(LeftParenCount + "," + RightParenCount)
+			if (LeftParenCount>RightParenCount) {
+				alert ("Unmatched Left Parenthesis");
+				document.mainForm.SearchFor.focus();
+				return false;
+			}
+				if (RightParenCount>LeftParenCount) {
+				alert ("Unmatched Right Parenthesis");
+				document.mainForm.SearchFor.focus();
+				return false;
+			}
+		}
+		//popWindow()
+		//OpenWindow=window.open('file:///d:/iisapp/searching.htm', 'ProgressWindow', config='height=50, width=300, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, directories=no, status=no, screenX=500, screenY=2000');
+	}
+</script>
+
+</head>
+
+<body bgcolor="#ffffff" background="../../IISApp/background/background.gif" onLoad="startFocus()">
+<div align="center"><!-- #BeginEditable "headImage" --><!-- #EndEditable --> </div>
+<div align="center"><!-- #BeginEditable "subTopics" --> 
+  <p><font size="4"><b>Journal </b>| <WC@link></WC@link> | <a href="http://addlater.htm">Chapter
+  in Treatise </a> | <a href="http://addlater">Unpublished Work </a>| <a href="http://addlater">Legislative
+  Material </a> | <a href="http://addlater">Nonprint Material</a>&nbsp;</font></p><!-- #EndEditable --> 
+</div><div align="center" style="WIDTH: 917px; HEIGHT: 504px"><!-- #BeginEditable "bodyTable" --> 
+<form name=mainForm method="post" onSubmit = "return validateForm()" action="SimpleSearch.ASP?WCI=tplNCPL&amp;WCE=ShowData&amp;WCU">
+
+  <table width="600" border="0" cellspacing="0" cellpadding="0" height="1">
+    <tr> 
+      <td height="34" width="186" bgcolor="#008080" colspan="2">
+        <p align="left"><font size="+2"><b>Data Input</b></font></p>
+      </td>
+      <td height="34" width="186" bgcolor="#008080" colspan="2" valign="top" align="right">
+        <p align="right"><font size="+2"><b>Journal Entry</b></font>
+      </td>
+    </tr>
+    <tr>
+      <td height="1" valign=bottom width="200" align="left"> 
+        <P 
+style="MARGIN-TOP: 0px; MARGIN-BOTTOM: 0px; WORD-SPACING: 0px; LINE-HEIGHT: 100%" align="left">
+        <font size="3"><b>Date Added:&nbsp;</b></font>
+        </P>
+      </td>
+      <td height="1" valign=bottom width="200" colspan="2" align="left"> 
+        <font size="3"><b>Date Updated:</b></font>
+      </td>
+      <td height="1" valign=bottom width="200" align="left"> 
+        <font size="3"><b>Input Initials:</b></font>
+      </td>
+    </tr>
+    <tr>
+      <td height="1" valign=bottom width="200" align="left"> 
+        <p align="left"> 
+        <font size="3"><input name=SearchFor1 size="16" ></font> 
+        </p>
+      </td>
+      <td height="1" valign=bottom width="200" colspan="2" align="left"> 
+        <p align="left"> 
+        <font size="3"><input name=SearchFor2 size="16" ></font> 
+        </p>
+      </td>
+      <td height="1" valign=bottom width="200" align="left"> 
+        <font size="3"><input name=SearchFor6 size="16" ></font> 
+      </td>
+    </tr>
+  </table>
+  <hr>
+
+  <table width="600" border="0" cellspacing="0" cellpadding="0" height="373">
+    <tr>
+      <td height="20" valign=bottom width="673" colspan="4" align="left"> 
+        <P 
+style="MARGIN-TOP: 0px; MARGIN-BOTTOM: 0px; WORD-SPACING: 0px; LINE-HEIGHT: 100%" align="left">
+        <font size="3"><b>Publication Title:</b>&nbsp;</font>
+        </P>
+      </td>
+    </tr>
+    <tr background="../../IISApp/background/background2.gif"> 
+      <td colspan="4" height="20" valign=top width="673" align="left"> 
+        <p align="left"> <font size="3"><input name=SearchFor size="82" ></font> 
+        </p>
+      </td>
+    </tr>
+    <tr background="../../IISApp/background/background2.gif"> 
+      <td height="30" valign=bottom width="673" colspan="4" align="left"> 
+        <P 
+style="MARGIN-TOP: 0px; MARGIN-BOTTOM: 0px; WORD-SPACING: 0px; LINE-HEIGHT: 100%" align="left">
+        <font size="3"><b>Journal Title:</b></font>
+        </P>
+      </td>
+    </tr>
+    <tr background="../../IISApp/background/background2.gif"> 
+      <td height="20" valign=top width="673" colspan="4" align="left"> 
+        <p align="left"> 
+        <font size="3"><B><SELECT 
+id=select1 style="width: 582; height: 23" tabIndex=6 size=1 name=ReportOutput 
+     ></SELECT>
+        </B></font>
+        </p>
+      </td>
+    </tr>
+    <tr background="../../IISApp/background/background2.gif"> 
+      <td height="30" valign=bottom width="337" colspan="2" align="left"> 
+        <p align="left"> <font size="3"><b>Article Designation: </b></font></p>
+      </td>
+      <td height="30" valign=bottom width="336" colspan="2" align="left"> 
+        <font size="3"><b>Publication Year:</b></font>
+      </td>
+    </tr>
+    <tr background="../../IISApp/background/background2.gif"> 
+      <td height="20" valign=top width="337" colspan="2" align="left"> 
+        <font size="3"><B><SELECT 
+id=select2 style="WIDTH: 294px; HEIGHT: 23px" tabIndex=6 size=1 name=D1 
+     ></SELECT>
+        </B></font>
+      </td>
+      <td height="20" valign=top width="336" colspan="2" align="left"> 
+        <font size="3"><input name=SearchFor5 size="16" ></font> 
+      </td>
+    </tr>
+    <tr>
+      <td height="30" valign=bottom width="169" align="left"> 
+        <P 
+style="MARGIN-TOP: 0px; MARGIN-BOTTOM: 0px; WORD-SPACING: 0px; LINE-HEIGHT: 100%" align="left">
+        <font size="3"><b>Volume </b></font>
+        </P>
+      </td>
+      <td height="30" valign=bottom width="191" align="left"> 
+        <font size="3"><b>Publication Month:</b></font>
+      </td>
+      <td height="30" valign=bottom width="160" align="left"> 
+        <font size="3"><b>Publication Day:</b></font>
+      </td>
+      <td height="30" valign=bottom width="159" align="left"> 
+        <font size="3"><b>Page Number:</b></font>
+      </td>
+    </tr>
+    <tr>
+      <td height="30" valign=bottom width="169" align="left"> 
+        <p align="left"> 
+        <font size="3"><input name=SearchFor1 size="16" ></font> 
+        </p>
+      </td>
+      <td height="30" valign=bottom width="191" align="left"> 
+        <p align="left"> 
+        <font size="3"><B><SELECT 
+id=select3 style="WIDTH: 150px; HEIGHT: 23px" tabIndex=6 size=1 name=D2 
+     ></SELECT>
+        </B></font>
+        </p>
+      </td>
+      <td height="30" valign=bottom width="160" align="left"> 
+        <p align="left"> 
+        <font size="3"><input name=SearchFor3 size="16" ></font> 
+        </p>
+      </td>
+      <td height="30" valign=bottom width="159" align="left"> 
+        <p align="left"> 
+        <font size="3"><input name=SearchFor4 size="16" ></font> 
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td height="30" valign=bottom width="673" colspan="4" align="left"> 
+        <p align="left"> <font size="3"><b>Notes: </b></font></p>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="4" height="91" valign=top width="673">
+        <p align="left"><TEXTAREA name=S1 cols=66 rows="2"></TEXTAREA>
+        </p>
+      </td>
+    </tr>
+  </table>
+  <hr>
+
+  <table width="600" border="0" cellspacing="0" cellpadding="0" height="373">
+    <tr>
+      <td height="20" valign=bottom width="225"> 
+        <P 
+style="MARGIN-TOP: 0px; MARGIN-BOTTOM: 0px; WORD-SPACING: 0px; LINE-HEIGHT: 100%" align="left">
+        <font size="3"><b>Author /Editor/Translator:</b></font>
+        </P>
+      </td>
+      <td height="20" valign=bottom width="224" colspan="2"> 
+        <font size="3"><b><SELECT 
+id=select4 style="width: 195; height: 23" tabIndex=6 size=1 name=D3 
+     ></SELECT>
+        </b></font>
+      </td>
+      <td height="20" valign=bottom width="224"> 
+        <p align="right"><font size="2"><INPUT type=button size=30 value="Add New" name=B4><INPUT type=button size=30 value="Edit Authors" name=B5>
+        </font></p>
+      </td>
+    </tr>
+    <tr>
+      <td height="120" valign=middle width="337" colspan="2">&nbsp;<SELECT id=select5 
+      style="width: 286; height: 96" size=2 name=select5> 
+      <OPTION></OPTION></SELECT> 
+      </td>
+      <td height="120" valign=middle width="336" colspan="2"> 
+      <SELECT id=select6 
+      style="width: 264; height: 96" size=2 name=D4> 
+      <OPTION></OPTION></SELECT> 
+      </td>
+    </tr>
+    <tr>
+      <td height="30" valign=bottom width="225"> 
+        <P 
+style="MARGIN-TOP: 0px; MARGIN-BOTTOM: 0px; WORD-SPACING: 0px; LINE-HEIGHT: 100%" align="left">
+        <font size="3"><b>Keyword/Thesaurus:</b></font>
+        </P>
+      </td>
+      <td height="30" valign=bottom width="224" colspan="2"> 
+      </td>
+      <td height="30" valign=bottom width="224"> 
+        <p align="right"><font size="2"><INPUT type=button size=30 value="Add New" name=B3><INPUT type=button size=30 value="Edit Keywords" name=B6>
+        </font></p>
+      </td>
+    </tr>
+    <tr>
+      <td height="120" valign=middle width="337" colspan="2">&nbsp;<SELECT id=select5 
+      style="width: 286; height: 96" size=2 name=select5> 
+      <OPTION></OPTION></SELECT> 
+      </td>
+      <td height="120" valign=middle width="336" colspan="2"> 
+      <SELECT id=select6 
+      style="width: 264; height: 96" size=2 name=D4> 
+      <OPTION></OPTION></SELECT> 
+      </td>
+    </tr>
+    <tr background="../../IISApp/background/background2.gif"> 
+      <td colspan="4" height="45" valign=center width="673"> 
+        <p align="center"><font size="2"><INPUT type=submit size=30 value=Submit name=B1>
+        <input type="reset" value="Reset " name="B2"></font></p>
+      </td>
+    </tr>
+    <tr> 
+      <td colspan="4" width="673" bgcolor="#008080" height="30">
+        <p align="center">&nbsp;</p>
+      </td>
+    </tr>
+    <tr> 
+      <td colspan="4" width="673" height="30"> 
+        <div align="center">
+          <p align="center">&nbsp;</p></div>
+      </td>
+    </tr>
+  </table>
+  </form><!-- #EndEditable --> </div>
+<hr>
+</body>
+<!-- #EndTemplate --></html>

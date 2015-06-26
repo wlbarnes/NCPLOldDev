@@ -1,0 +1,13 @@
+frmMain = 116, 65, 1343, 946, , 75, 203, 1471, 1048, C
+frmNewJournal = 117, 163, 608, 585, , 176, 176, 667, 598, C
+frmNewAuthor = 169, 12, 1353, 766, C, 88, 88, 579, 510, C
+frmNewLargerWork = 88, 88, 784, 704, C, 44, 44, 740, 660, C
+frmFilter = 44, 44, 1232, 634, , 176, 176, 919, 652, C
+frmJump = 198, 198, 892, 814, C, 176, 176, 870, 792, C
+frmWordPreview = 198, 198, 698, 655, C, 154, 154, 774, 611, C
+procs = 178, 40, 1415, 788, 
+frmAddThesaurus = 0, 0, 0, 0, C, 0, 0, 0, 0, C
+frmEditKeywords = 0, 0, 0, 0, C, 0, 0, 0, 0, C
+frmKeywordChange = 224, 288, 1461, 1036, , 88, 88, 1325, 836, C
+frmKeywordThesaurusChange = 0, 0, 0, 0, C, 0, 0, 0, 0, C
+frmThesaurusEntry = 0, 0, 0, 0, C, 0, 0, 0, 0, C
