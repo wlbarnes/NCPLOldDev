@@ -2847,7 +2847,7 @@ Private Sub Position_Article_Form()
 End Sub
    
 Private Sub Position_Treatise_Form()
-  With Me.lblEditionAndPrinting
+  With Me.lblEditionandPrinting
       .Appearance = 0         'Flat
       .BackColor = &H8000000F
       .BorderStyle = 0        'None
@@ -2971,7 +2971,7 @@ Private Sub Position_Treatise_Form()
       .Visible = True
       .Enabled = True
    End With
-   With Me.txtEditionAndPrinting
+   With Me.txtEditionandPrinting
       '.height = 285
       .Left = 3000
       .TabIndex = 3
@@ -4935,7 +4935,7 @@ Private Sub cmbLargerWorkTitle_Click()
     If Not rstLargerWorks.EOF Then
         Me.txtLargerWorkID = rstLargerWorks!LargerWorkID
         If rstLargerWorks!CallNumber <> "" Then Me.txtCallNumber = rstLargerWorks!CallNumber
-        If rstLargerWorks!EditionAndPrinting <> "" Then Me.txtEditionAndPrinting = rstLargerWorks!EditionAndPrinting
+        If rstLargerWorks!EditionAndPrinting <> "" Then Me.txtEditionandPrinting = rstLargerWorks!EditionAndPrinting
         If rstLargerWorks!Publisher <> "" Then Me.txtPublisher = rstLargerWorks!Publisher
         If rstLargerWorks!OriginalPublicationDate <> "" Then Me.txtOriginalPublicationDate = rstLargerWorks!OriginalPublicationDate
         If rstLargerWorks!SeriesVolume <> "" Then Me.txtSeriesVolume = rstLargerWorks!SeriesVolume
@@ -5398,7 +5398,7 @@ Private Sub cmdPreview_Click()
     sMonth = Me.cmbPublicationMonthOrSeason.Text
     sYear = Me.txtYear.Text
     sSeriesTitle = Me.txtTitleOfSeriesIfNotIssuedByAuthor.Text
-    sEdition = Me.txtEditionAndPrinting.Text
+    sEdition = Me.txtEditionandPrinting.Text
     sURL = Me.txtURL.Text
     sWorkingPaperInfo = Me.txtWorkingPaper.Text
     
@@ -5566,7 +5566,7 @@ Private Sub cmdSave_Click()
     sPublicationMonth = Me.cmbPublicationMonthOrSeason.Text
     'sNotes = Me.txtNotes.Text
     sURL = Me.txtURL.Text
-    sEditionAndPrinting = Me.txtEditionAndPrinting.Text
+    sEditionAndPrinting = Me.txtEditionandPrinting.Text
     sPublisher = Me.txtPublisher.Text
     sOriginalPublicationDate = Me.txtOriginalPublicationDate.Text
     sSeriesVolume = Me.txtSeriesVolume.Text
@@ -6499,8 +6499,8 @@ Private Sub Form_Load()
     'Set rstKeywords = New ADODB.Recordset
     Set cnReadDatabase = New ADODB.Connection
     Set cnWriteDatabase = New ADODB.Connection
-    'Set cnRemoteReadDatabase = New ADODB.Connection
-    'Set cnRemoteWriteDatabase = New ADODB.Connection
+    Set cnRemoteReadDatabase = New ADODB.Connection
+    Set cnRemoteWriteDatabase = New ADODB.Connection
     
     
     
@@ -6519,9 +6519,10 @@ Private Sub Form_Load()
 'User Id=myUsername;Password=myPassword;
     
     
-    cnReadDatabase.Open (sRemoteConnectionString)
-    cnWriteDatabase.Open (sRemoteConnectionString)
-    'cnRemoteDatabase.Open (sRemoteConnectionString)
+    cnReadDatabase.Open (sConnectionString)
+    cnWriteDatabase.Open (sConnectionString)
+    cnRemoteReadDatabase.Open (sRemoteConnectionString)
+    cnRemoteWriteDatabase.Open (sRemoteConnectionString)
     
     
     Me.cmbSourceType.CausesValidation = False
@@ -6722,8 +6723,8 @@ Private Sub Erase_Form()
     'Erase_Object lblPlaceOfPublication
     'Erase_Object txtPlaceOfPublication, True
     
-    Erase_Object lblEditionAndPrinting
-    Erase_Object txtEditionAndPrinting, True
+    Erase_Object lblEditionandPrinting
+    Erase_Object txtEditionandPrinting, True
     
     Erase_Object lblPublisher
     Erase_Object txtPublisher, True
@@ -6812,6 +6813,9 @@ Private Sub Form_Unload(Cancel As Integer)
     '
     cnReadDatabase.Close
     cnWriteDatabase.Close
+    cnRemoteReadDatabase.Close
+    cnRemoteWriteDatabase.Close
+    
     
     Set rstJournals = Nothing
     Set rstAuthors = Nothing
@@ -6819,8 +6823,13 @@ Private Sub Form_Unload(Cancel As Integer)
     Set rstTranslators = Nothing
     Set rstLargerWorks = Nothing
     Set rstKeywords = Nothing
+    
     Set cnWriteDatabase = Nothing
     Set cnReadDatabase = Nothing
+    Set cnRemoteWriteDatabase = Nothing
+    Set cnRemoteReadDatabase = Nothing
+    
+    
     
     Set rstArticles = Nothing
     Set rstChapters = Nothing
@@ -7016,7 +7025,7 @@ Private Sub Fill_Form()
                 Me.txtLargerWorkID.Text = rstLargerWorksChapters!LargerWorkID
                 Me.txtChapterID.Text = rstLargerWorksChapters!chapterID
                 If rstLargerWorksChapters!CallNumber <> "" Then Me.txtCallNumber = rstLargerWorksChapters!CallNumber
-                If rstLargerWorksChapters!EditionAndPrinting <> "" Then Me.txtEditionAndPrinting = rstLargerWorksChapters!EditionAndPrinting
+                If rstLargerWorksChapters!EditionAndPrinting <> "" Then Me.txtEditionandPrinting = rstLargerWorksChapters!EditionAndPrinting
                 If rstLargerWorksChapters!Publisher <> "" Then Me.txtPublisher = rstLargerWorksChapters!Publisher
                 If rstLargerWorksChapters!OriginalPublicationDate <> "" Then Me.txtOriginalPublicationDate = rstLargerWorksChapters!OriginalPublicationDate
                 If rstLargerWorksChapters!SeriesVolume <> "" Then Me.txtSeriesVolume = rstLargerWorksChapters!SeriesVolume
@@ -7073,7 +7082,7 @@ Private Sub Fill_Form()
             rstTreatise.Open "Select * FROM tblTreatises WHERE RecordID = " & iRecNum, cnReadDatabase, adOpenForwardOnly, adLockReadOnly
             If Not rstTreatise.EOF Then
                 Me.txtTreatiseID.Text = rstTreatise!TreatiseID
-                If rstTreatise!EditionAndPrinting <> "" Then Me.txtEditionAndPrinting.Text = rstTreatise!EditionAndPrinting
+                If rstTreatise!EditionAndPrinting <> "" Then Me.txtEditionandPrinting.Text = rstTreatise!EditionAndPrinting
                 If rstTreatise!Publisher <> "" Then Me.txtPublisher.Text = rstTreatise!Publisher
                 If rstTreatise!OriginalPublicationDate <> "" Then Me.txtOriginalPublicationDate.Text = rstTreatise!OriginalPublicationDate
                 If rstTreatise!SeriesVolume <> "" Then Me.txtSeriesVolume.Text = rstTreatise!SeriesVolume

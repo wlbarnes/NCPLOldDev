@@ -203,6 +203,7 @@ Public rstKeywordsThesaurus As ADODB.Recordset
 
 Dim rstRecordsKeywords As ADODB.Recordset
 Public cnDatabase As ADODB.Connection
+Public cnRemoteDatabase As ADODB.Connection
 Dim iSelectedKeywordID As Integer
 Dim iToRemoveKeywordID As Integer
 Dim sSelectedKeyword As String
