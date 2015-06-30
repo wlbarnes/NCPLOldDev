@@ -180,23 +180,17 @@ Private Sub cmdSave_Click()
             If sCallNumber <> "" Then rstJournalCheck!CallNumber = sCallNumber
             rstJournalCheck!PlaceOfPublication = sPlaceOfPublication
         rstJournalCheck.Update
-        'If Me.Caption = "New Journal" Then iJournalID = rstJournalCheck!JournalID
         iJournalID = rstJournalCheck!JournalID
         rstJournalCheck.Requery
         Call frmMain.Populate_Journal_Combobox
-        'frmMain.cmbJournalTitle.AddItem sJournalTitle
         frmMain.cmbJournalTitle.Text = sJournalTitle
         frmMain.txtJournalID = iJournalID
-        'frmMain.txtJournalTitleShortForm.Text = sJournalTitleShortForm
         frmMain.cmbPagination = sPagination
         frmMain.txtJournaTitleShortForm = sJournalTitleShortForm
-        'frmMain.txtCallNumber = sCallNumber
-        'frmMain.txtPlaceOfPublication = sPlaceOfPublication
         Unload Me
         Call Clear_Form
         rstJournalCheck.Close
         Set rstJournalCheck = Nothing
-
     End If
 Duplicate_Record:
 End Sub

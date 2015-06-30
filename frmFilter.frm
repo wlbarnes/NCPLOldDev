@@ -96,6 +96,9 @@ Private Sub Execute_SQL(sSQLStatement As String)
     Dim i As Integer
     
     If frmMain.rstRecords.State <> 0 Then frmMain.rstRecords.Close
+    
+    If frmMain.rstRemoteRecords.State <> 0 Then frmMain.rstRemoteRecords.Close
+    
     On Error GoTo SQLerror
     Set rstRecordTemp = New ADODB.Recordset
     
@@ -117,6 +120,14 @@ Private Sub Execute_SQL(sSQLStatement As String)
     Loop
     With frmMain.rstRecords
         .ActiveConnection = frmMain.cnWriteDatabase
+        .CursorType = adOpenKeyset
+        .CursorLocation = adUseClient
+        .LockType = adLockOptimistic
+        .Open sSource '("SELECT * from tblRecords")
+    End With
+    
+    With frmMain.rstRemoteRecords
+        .ActiveConnection = frmMain.cnRemoteWriteDatabase
         .CursorType = adOpenKeyset
         .CursorLocation = adUseClient
         .LockType = adLockOptimistic

@@ -538,12 +538,14 @@ End Sub
 
 Private Sub Form_Load()
     Dim sConnectionString As String
-    
+    Dim sremoteConnectionString As String
     Set cnDatabase = New Connection
+    Set cnRemoteDatabase = New Connection
     'sConnectionString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=..\database\NCPL.mdb"
     'sConnectionString = "Provider=SQLOLEDB.1;Password=@boolean;Persist Security Info=True;User ID=dataentry;Initial Catalog=NCPLBETA;Data Source=128.122.192.28"
     'sConnectionString = "Provider=SQLOLEDB.1;Password=@boolean;Persist Security Info=True;User ID=dataentry;Initial Catalog=NCPLBETA;Data Source=NCPL"
     sConnectionString = "Provider=SQLOLEDB.1;Password=@boolean;Persist Security Info=True;User ID=dataentry;Initial Catalog=NCPLLive;Data Source=NCPL"
+    sremoteConnectionString = "Provider=SQLOLEDB.1;Data Source=awssqldev.nyulaw.me;Initial Catalog=NCPLLive;User Id=barnesw;Password=philly"
     
     
     
@@ -611,6 +613,7 @@ Private Sub Form_Unload(Cancel As Integer)
     Set rstKeywords = Nothing
     Set rstThesaurus = Nothing
     Set cnDatabase = Nothing
+    Set cnRemoteDatabase = Nothing
     Set rstKeywordsThesaurus = Nothing
     Call frmMain.Populate_Keyword_List
 End Sub

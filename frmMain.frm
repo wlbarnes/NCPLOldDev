@@ -2591,6 +2591,7 @@ Dim rstChapters As ADODB.Recordset
 Dim rstMisc As ADODB.Recordset
 Dim rstLegislativeMaterial As ADODB.Recordset
 Public rstRecords As ADODB.Recordset
+Public rstRemoteRecords As ADODB.Recordset
 Dim rstRecordsAET As ADODB.Recordset
 Dim rstRecordsKeywords As ADODB.Recordset
 Dim rstTreatises As ADODB.Recordset
@@ -2608,6 +2609,801 @@ Public cAuthors As Collection
 Public cEditors As Collection
 Public cTranslators As Collection
 Public cKeywords As Collection
+
+Private Sub Keyword_Thesaurus_AET_Index(cnConnection As Connection, cnReadConnection As Connection, iRecordID As Integer, sTitle As String, _
+            sJournalTitle As String, sJournalTitleShortForm As String, rstRecs As Recordset)
+    Dim sConnectionString As String
+    Dim rstAETDelete As ADODB.Recordset
+    Dim rstKeywordDelete As ADODB.Recordset
+    Dim rstBigRecordIndex As ADODB.Recordset
+    Dim icounter As Integer
+    Dim sSQLString As String
+    Dim rstRecordsKeywordsThesaurus As ADODB.Recordset
+    Dim rstAllKeyword As ADODB.Recordset
+    Dim sAllKeywordString As String
+    Dim cAllKeywords As Collection
+    Dim sCurrentKeyword As String
+    Dim i As Integer
+    Dim rstRecordsAuthors As ADODB.Recordset
+    Dim rstAllAuthor As ADODB.Recordset
+    Dim sFullAuthorString As String
+    Dim rstAuthorCiteForm As Recordset
+    Dim iAuthorCount As Integer
+    Dim sAuthorString As String
+    Dim rstAuthorLast As Recordset
+    Dim sAuthorLastString As String
+    Dim iRecordsAETID As Integer
+    Dim sAETFMLS As String
+    Dim rstAETCiteForm As ADODB.Recordset
+    Dim sAuthorCiteForm As String
+    Dim sEditorCiteForm As String
+    Dim iEditorCount As Integer
+    Dim report As procs
+    Dim bDuplicate As Boolean
+    
+    Set report = New procs
+    'keyword subpart
+    sSQLString = "select * from qryRecordsKeywordsThesaurus where RecordID=" & iRecordID
+    Set rstRecordsKeywordsThesaurus = New Recordset
+    Set rstAllKeyword = New Recordset
+    Set cAllKeywords = New Collection
+    rstRecordsKeywordsThesaurus.CursorLocation = adUseClient
+    rstRecordsKeywordsThesaurus.Open sSQLString, cnReadConnection, adOpenForwardOnly, adLockReadOnly
+    sSQLString = "select * from tblRecordsAllKeywords where RecordID=" & iRecordID
+    rstAllKeyword.CursorLocation = adUseClient
+    rstAllKeyword.Open sSQLString, cnConnection, adOpenKeyset, adLockOptimistic
+    On Error GoTo KeywordSaveErr
+    Do While Not rstRecordsKeywordsThesaurus.EOF
+        sAllKeywordString = ""
+
+        Do While iRecordID = rstRecordsKeywordsThesaurus!RecordID
+            bDuplicate = False
+            If rstRecordsKeywordsThesaurus!KeywordOrCodeSection <> "" Then
+                bDuplicate = False
+                sCurrentKeyword = rstRecordsKeywordsThesaurus!KeywordOrCodeSection
+                For i = 1 To cAllKeywords.Count
+                    If cAllKeywords.Item(i) = sCurrentKeyword Then bDuplicate = True
+                Next
+                If Not bDuplicate Then cAllKeywords.Add sCurrentKeyword
+            End If
+            bDuplicate = False
+            If rstRecordsKeywordsThesaurus!ThesaurusEquivalent <> "" Then
+                bDuplicate = False
+                sCurrentKeyword = rstRecordsKeywordsThesaurus!ThesaurusEquivalent
+                For i = 1 To cAllKeywords.Count
+                    If cAllKeywords.Item(i) = sCurrentKeyword Then bDuplicate = True
+                Next
+                If Not bDuplicate Then cAllKeywords.Add sCurrentKeyword
+            End If
+            rstRecordsKeywordsThesaurus.MoveNext
+        Loop
+ 
+KeywordEOFErr:
+        For i = 1 To cAllKeywords.Count
+            If sAllKeywordString <> "" Then sAllKeywordString = sAllKeywordString & " "
+            sAllKeywordString = sAllKeywordString & cAllKeywords.Item(i)
+        Next
+    '
+        cnConnection.BeginTrans
+        
+        If rstAllKeyword.EOF Then rstAllKeyword.AddNew
+            rstAllKeyword!RecordID = iRecordID
+            rstAllKeyword!AllKeywords = sAllKeywordString
+        rstAllKeyword.Update
+        cnConnection.CommitTrans
+    
+    Loop
+    If (Not rstAllKeyword.EOF) And cAllKeywords.Count = 0 Then
+        cnConnection.BeginTrans
+            rstAllKeyword.Delete
+            rstAllKeyword.Update
+        cnConnection.CommitTrans
+    End If
+    Set cAllKeywords = Nothing
+    Set rstRecordsKeywordsThesaurus = Nothing
+    Set rstAllKeyword = Nothing
+'end keyword part
+    
+    
+'author subpart
+    sSQLString = "select * from qryAuthors where RecordID=" & iRecordID
+    Set rstRecordsAuthors = New Recordset
+    rstRecordsAuthors.CursorLocation = adUseClient
+    rstRecordsAuthors.Open sSQLString, cnReadConnection, adOpenForwardOnly, adLockReadOnly
+    
+    On Error GoTo AuthorSaveErr0
+    
+    sAuthorString = ""
+    sAuthorLastString = ""
+    If Not rstRecordsAuthors.EOF Then
+        rstRecordsAuthors.MoveLast
+        iAuthorCount = rstRecordsAuthors.RecordCount
+        rstRecordsAuthors.MoveFirst
+        sAETFMLS = Full_AET(rstRecordsAuthors, "FMLS")
+        Select Case iAuthorCount
+            Case 1
+                If rstRecordsAuthors!InstitutionalEntity <> "" Then
+                    sAuthorString = rstRecordsAuthors!InstitutionalEntity
+                    If sAETFMLS <> "" Then sAuthorString = sAuthorString & ", " & sAETFMLS
+                Else
+                    If sAETFMLS <> "" Then sAuthorString = sAETFMLS
+                End If
+                If rstRecordsAuthors!LastName <> "" Then sAuthorLastString = rstRecordsAuthors!LastName
+            Case 2
+                If rstRecordsAuthors!InstitutionalEntity <> "" Then sAuthorString = rstRecordsAuthors!InstitutionalEntity & ","
+                If sAETFMLS <> "" Then sAuthorString = sAETFMLS
+                If rstRecordsAuthors!LastName <> "" Then sAuthorLastString = rstRecordsAuthors!LastName
+                rstRecordsAuthors.MoveNext
+                sAETFMLS = Full_AET(rstRecordsAuthors, "FMLS")
+                sAuthorString = sAuthorString & " & "
+                sAuthorLastString = sAuthorLastString & " " & rstRecordsAuthors!LastName
+                sAuthorString = sAuthorString & sAETFMLS
+                    
+            Case Else
+                If sAETFMLS <> "" Then sAuthorString = sAETFMLS & " et al."
+                If rstRecordsAuthors!InstitutionalEntity <> "" Then sAuthorString = rstRecordsAuthors!InstitutionalEntity & ","
+                If rstRecordsAuthors!LastName <> "" Then sAuthorLastString = rstRecordsAuthors!LastName
+                rstRecordsAuthors.MoveNext
+                Do While Not rstRecordsAuthors.EOF
+                    sAuthorLastString = sAuthorLastString & " " & rstRecordsAuthors!LastName
+                    rstRecordsAuthors.MoveNext
+                Loop
+        End Select
+     End If
+          
+AuthorEOFErr0:
+    Call report.Get_AET_String(iRecordID, cnReadConnection, sAuthorCiteForm, sEditorCiteForm, cAuthors.Count, cEditors.Count)
+    
+    Set rstAETCiteForm = New ADODB.Recordset
+    
+    With rstAETCiteForm
+        .ActiveConnection = cnConnection
+        .CursorLocation = adUseClient
+        .CursorType = adOpenDynamic
+        .LockType = adLockOptimistic
+        .Open "Select * from tblRecordsAETCiteForm WHERE RecordID=" & iRecordID
+    End With
+    cnConnection.BeginTrans
+        If rstAETCiteForm.EOF Then rstAETCiteForm.AddNew
+        rstAETCiteForm!RecordID = iRecordID
+        rstAETCiteForm!authorciteform = sAuthorCiteForm
+        rstAETCiteForm!Editorciteform = sEditorCiteForm
+        rstAETCiteForm.Update
+    cnConnection.CommitTrans
+    rstAETCiteForm.Close
+    Set rstAETCiteForm = Nothing
+
+    sSQLString = "select * from tblRecordsAuthorCiteForm where RecordID=" & iRecordID
+    Set rstAuthorCiteForm = New Recordset
+    rstAuthorCiteForm.CursorLocation = adUseClient
+    rstAuthorCiteForm.Open sSQLString, cnConnection, adOpenKeyset, adLockOptimistic
+   
+      Select Case sAuthorString
+          Case ""
+              If Not rstAuthorCiteForm.EOF Then
+                cnConnection.BeginTrans
+                rstAuthorCiteForm.Delete
+                rstAuthorCiteForm.Update
+                cnConnection.CommitTrans
+              End If
+          Case Else
+              cnConnection.BeginTrans
+              If rstAuthorCiteForm.EOF Then rstAuthorCiteForm.AddNew
+              rstAuthorCiteForm!RecordID = iRecordID
+              rstAuthorCiteForm!authorciteform = sAuthorString
+              rstAuthorCiteForm.Update
+              cnConnection.CommitTrans
+
+      End Select
+    rstAuthorCiteForm.Close
+    Set rstAuthorCiteForm = Nothing
+    On Error GoTo AuthorSaveErr1
+
+authorEOFErr1:
+    sSQLString = "select * from tblRecordsAllAuthorLastNameOnly where RecordID=" & iRecordID
+    Set rstAuthorLast = New Recordset
+    rstAuthorLast.CursorLocation = adUseClient
+    rstAuthorLast.Open sSQLString, cnConnection, adOpenKeyset, adLockOptimistic
+   
+      Select Case sAuthorLastString
+          Case ""
+              If Not rstAuthorLast.EOF Then
+                cnConnection.BeginTrans
+                rstAuthorLast.Delete
+                rstAuthorLast.Update
+                cnConnection.CommitTrans
+              End If
+          
+          Case Else
+              cnConnection.BeginTrans
+              If rstAuthorLast.EOF Then rstAuthorLast.AddNew
+              rstAuthorLast!RecordID = iRecordID
+              rstAuthorLast!AllAuthorLastNameOnly = sAuthorLastString
+              rstAuthorLast.Update
+              cnConnection.CommitTrans
+        End Select
+    rstAuthorLast.Close
+    Set rstAuthorLast = Nothing
+    If rstRecordsAuthors.RecordCount > 0 Then rstRecordsAuthors.MoveFirst
+    
+    On Error GoTo AuthorSaveErr
+    
+    sFullAuthorString = ""
+    Do While iRecordID = rstRecordsAuthors!RecordID
+        If sFullAuthorString <> "" Then sFullAuthorString = sFullAuthorString & " "
+        If rstRecordsAuthors!InstitutionalEntity <> "" Then sFullAuthorString = sFullAuthorString & rstRecordsAuthors!InstitutionalEntity
+        If sFullAuthorString <> "" Then sFullAuthorString = sFullAuthorString & " "
+        sAETFMLS = Full_AET(rstRecordsAuthors, "FMLS")
+        If sAETFMLS <> "" Then sFullAuthorString = sFullAuthorString & sAETFMLS
+        sAETFMLS = Full_AET(rstRecordsAuthors, "FL")
+        If sFullAuthorString <> "" Then sFullAuthorString = sFullAuthorString & " "
+        If sAETFMLS <> "" Then sFullAuthorString = sFullAuthorString & sAETFMLS
+        sAETFMLS = Full_AET(rstRecordsAuthors, "LFM")
+        If sFullAuthorString <> "" Then sFullAuthorString = sFullAuthorString & " "
+        If sAETFMLS <> "" Then sFullAuthorString = sFullAuthorString & sAETFMLS
+        rstRecordsAuthors.MoveNext
+        
+    Loop
+AuthorEOFErr:
+    sSQLString = "select * from tblRecordAllAuthor where RecordID=" & iRecordID
+    Set rstAllAuthor = New ADODB.Recordset
+    rstAllAuthor.CursorLocation = adUseClient
+    rstAllAuthor.Open sSQLString, cnConnection, adOpenKeyset, adLockOptimistic
+   
+        Select Case sFullAuthorString
+            Case ""
+                If Not rstAllAuthor.EOF Then
+                  cnConnection.BeginTrans
+      
+                    rstAllAuthor.Delete
+                    rstAllAuthor.Update
+                  cnConnection.CommitTrans
+                End If
+            Case Else
+                cnConnection.BeginTrans
+    
+                
+                If rstAllAuthor.EOF Then rstAllAuthor.AddNew
+                rstAllAuthor!RecordID = iRecordID
+                rstAllAuthor!AllAuthors = sFullAuthorString
+                rstAllAuthor.Update
+                cnConnection.CommitTrans
+        End Select
+    rstAllAuthor.Close
+    Set rstAllAuthor = Nothing
+NoAuthor:
+'end author part
+    Set rstBigRecordIndex = New ADODB.Recordset
+    With rstBigRecordIndex
+        .CursorLocation = adUseClient
+        .CursorType = adOpenDynamic
+        .LockType = adLockOptimistic
+        .ActiveConnection = cnConnection
+        .Open "Select * from tblBigTextIndex WHERE RecordID=" & iRecordID
+    End With
+    cnConnection.BeginTrans
+        If rstBigRecordIndex.EOF Then rstBigRecordIndex.AddNew
+        rstBigRecordIndex!RecordID = iRecordID
+        rstBigRecordIndex!Title = sTitle
+        rstBigRecordIndex!AllAuthors = sFullAuthorString
+        rstBigRecordIndex!AllAuthorLastNameOnly = sAuthorLastString
+        rstBigRecordIndex!AllKeywords = sAllKeywordString
+        rstBigRecordIndex!JournalTitle = sJournalTitle
+        rstBigRecordIndex!JournalTitleShortFOrm = sJournalTitleShortForm
+        rstBigRecordIndex.Update
+    cnConnection.CommitTrans
+    
+    rstBigRecordIndex.Close
+    Set rstBigRecordIndex = Nothing
+    If Me.tglNewRecords.Value = True Then
+        Me.cmbRecordNumber.RemoveItem (Me.cmbRecordNumber.ListCount - 1)
+        Me.cmbRecordNumber.AddItem iRecordID
+        Me.cmbRecordNumber.AddItem "New Record"
+        Call Set_Entry_Form
+    End If
+    Me.txtStatus.Text = "Saved"
+    rstRecs.Requery
+    If Me.tglUpdateRecords = True Then
+       If iRecordID <> rstRecords.Fields("RecordID").Value Then
+            rstRecords.MoveFirst
+            Do Until rstRecords!RecordID = iRecordID
+                rstRecords.MoveNext
+            Loop
+        End If
+        If iRecordID <> rstRemoteRecords.Fields("RecordID").Value Then
+            rstRemoteRecords.MoveFirst
+            Do Until rstRemoteRecords!RecordID = iRecordID
+                rstRemoteRecords.MoveNext
+            Loop
+        End If
+    End If
+
+KeywordSaveErr:
+        Select Case Err
+        Case 3021
+            Resume KeywordEOFErr
+        Case 0
+            
+        Case Else
+            cnConnection.RollbackTrans
+            MsgBox "Error#" & Err.Number & ": " & Err.Description, _
+             vbOKOnly + vbCritical, "Saving Error"
+        End Select
+AuthorSaveErr:
+        Select Case Err
+        Case 3021
+            Resume AuthorEOFErr
+        
+        Case 0
+            
+        Case Else
+            cnConnection.RollbackTrans
+            MsgBox "Error#" & Err.Number & ": " & Err.Description, _
+             vbOKOnly + vbCritical, "Saving Error"
+        End Select
+AuthorSaveErr0:
+        Select Case Err
+        Case 3021
+            Resume AuthorEOFErr0
+        
+        Case 0
+            
+        Case Else
+            cnConnection.RollbackTrans
+            MsgBox "Error#" & Err.Number & ": " & Err.Description, _
+             vbOKOnly + vbCritical, "Saving Error"
+        End Select
+AuthorSaveErr1:
+        Select Case Err
+        Case 3021
+            Resume authorEOFErr1
+        Case 0
+        Case Else
+            cnConnection.RollbackTrans
+            MsgBox "Error#" & Err.Number & ": " & Err.Description, _
+             vbOKOnly + vbCritical, "Saving Error"
+        End Select
+       
+
+
+End Sub
+
+
+
+
+Private Sub Save_Main_Record(cnConnection As Connection, rstRecs As Recordset, sDateAdded As String, sInputInitials As String, sSourceType As String, _
+                            sTitle As String, sPageNumber As String, sYear As String, sURL As String, dDate As Date)
+                            
+    cnConnection.BeginTrans
+        If Me.tglNewRecords.Value = True Then rstRecs.AddNew
+            
+            If sDateAdded <> "" Then rstRecs!DateRecordAdded = sDateAdded
+            If (Me.tglUpdateRecords.Value = True) Or (Me.tglImportRecords.Value = True) Then rstRecs!dateRecordUpdated = dDate
+            If sInputInitials <> "" Then rstRecs!InputInitials = sInputInitials
+            If sSourceType <> "" Then rstRecs!DocumentType = sSourceType
+            If sTitle <> "" Then rstRecs!Title = sTitle
+            If sPageNumber <> "" Then rstRecs!PageNumber = sPageNumber
+            If sYear <> "" Then rstRecs!PublicationYear = sYear
+            'If sNotes <> "" Then rstrecs!Notes = sNotes
+            If sURL <> "" Then
+                rstRecs!ParallelURL = sURL
+            Else
+                rstRecs!ParallelURL = Null
+            End If
+            rstRecs!LibraryCOllection = Me.chkLibraryCollection
+            rstRecs!Republished = Me.chkRepublished
+            
+            
+        rstRecs.Update
+    cnConnection.CommitTrans
+End Sub
+
+
+Private Sub Save_Chapter(cnConnection As Connection, iRecordID As Integer, iLargerWorkID As Integer, _
+                            sSeriesVolume As String, sTitleOfSeriesIfNotIssuedByAuthor As String)
+                            
+    Set rstChapters = New ADODB.Recordset
+                        
+    With rstChapters
+        .ActiveConnection = cnConnection
+        .CursorLocation = adUseClient
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblChapters")
+    End With
+
+    cnConnection.BeginTrans
+        If Me.tglNewRecords = True Then rstChapters.AddNew
+
+        If Me.tglNewRecords.Value = False Then
+            rstChapters.MoveFirst
+            Do Until rstChapters!RecordID = iRecordID
+                rstChapters.MoveNext
+            Loop
+        End If
+        If Not rstChapters.EOF Then
+            'If Me.tglUpdateRecords = True Then rstChapters!chapterID = iChapterID
+    
+            rstChapters!RecordID = iRecordID
+            rstChapters!LargerWorkID = iLargerWorkID
+            If sSeriesVolume <> "" Then
+                rstChapters!SeriesVolume = sSeriesVolume
+            Else
+                rstChapters!SeriesVolume = Null
+            End If
+            
+            If sTitleOfSeriesIfNotIssuedByAuthor <> "" Then
+                rstChapters!TitleOfSeriesIfNotIssuedByAuthor = sTitleOfSeriesIfNotIssuedByAuthor
+            Else
+                rstChapters!TitleOfSeriesIfNotIssuedByAuthor = Null
+            End If
+            
+        End If
+        rstChapters.Update
+    cnConnection.CommitTrans
+    rstChapters.Close
+End Sub
+
+Private Sub Save_Article(cnConnection As Connection, iRecordID As Integer, sVolume As String, sPublicationMonth As String, _
+                sPublicationDay As String, sArticleDesignation As String, iJournalID As Integer)
+    Set rstArticles = New ADODB.Recordset
+        
+    
+    With rstArticles
+        .ActiveConnection = cnConnection
+        .CursorType = adOpenKeyset
+        .CursorLocation = adUseClient
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblArticles")
+    End With
+
+    cnConnection.BeginTrans
+    
+        If Me.tglNewRecords.Value = True Then rstArticles.AddNew
+        If Me.tglNewRecords.Value = False Then
+            rstArticles.MoveFirst
+            Do Until rstArticles!RecordID = iRecordID
+                rstArticles.MoveNext
+            Loop
+        End If
+        If Not rstArticles.EOF Then
+            rstArticles!RecordID = iRecordID
+    
+            If sVolume <> "" Then
+                rstArticles!Volume = sVolume
+            Else
+                rstArticles!Volume = Null
+            End If
+            If sPublicationMonth <> "" Then
+                rstArticles!PublicationMonthOrSeason = sPublicationMonth
+            Else
+                rstArticles!PublicationMonthOrSeason = Null
+            End If
+            If sPublicationDay <> "" Then
+                rstArticles!PublicationDay = sPublicationDay
+            Else
+                rstArticles!PublicationDay = Null
+            End If
+            If sArticleDesignation <> "" Then
+                rstArticles!ArticleDesignationForCitation = sArticleDesignation
+            Else
+                rstArticles!ArticleDesignationForCitation = Null
+            End If
+            
+            rstArticles!JournalID = iJournalID
+        End If
+        rstArticles.Update
+    cnConnection.CommitTrans
+    rstArticles.Close
+
+End Sub
+
+Private Sub Save_Legislative(cnConnection As Connection, iRecordID As Integer, sLegislativeType As String, sNameOfHouse As String, _
+                   sNumberOfCongress As String, sSessionOfCongress As String, sStateLegislativeSession As String, _
+                   sUSCCANCitation As String, sReportDocumentNumber As String, sSuDocNumber As String)
+    
+    Set rstLegislativeMaterial = New ADODB.Recordset
+
+    With rstLegislativeMaterial
+        .ActiveConnection = cnConnection
+        .CursorLocation = adUseClient
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblLegislativeMaterial")
+    End With
+
+    cnConnection.BeginTrans
+        If Me.tglNewRecords = True Then rstLegislativeMaterial.AddNew
+        If Me.tglNewRecords.Value = False Then
+            rstLegislativeMaterial.MoveFirst
+            Do Until rstLegislativeMaterial!RecordID = iRecordID
+                rstLegislativeMaterial.MoveNext
+            Loop
+        End If
+        If Not rstLegislativeMaterial.EOF Then
+            rstLegislativeMaterial!RecordID = iRecordID
+            rstLegislativeMaterial!materialtype = sLegislativeType
+            If sNameOfHouse <> "" Then rstLegislativeMaterial!NameOfHouse = sNameOfHouse
+            If sLegislativeType <> "" Then rstLegislativeMaterial!materialtype = sLegislativeType
+            If sNumberOfCongress <> "" Then rstLegislativeMaterial!NumberOfCongress = sNumberOfCongress
+            If sSessionOfCongress <> "" Then rstLegislativeMaterial!SessionOfCongress = sSessionOfCongress
+            If sStateLegislativeSession <> "" Then rstLegislativeMaterial!StateLegislativeSession = sStateLegislativeSession
+            If sUSCCANCitation <> "" Then rstLegislativeMaterial!USCCANCitation = sUSCCANCitation
+            If sReportDocumentNumber <> "" Then rstLegislativeMaterial!ReportOrDocumentNumber = sReportDocumentNumber
+            If sSuDocNumber <> "" Then rstLegislativeMaterial!SuDocNumber = sSuDocNumber
+        End If
+        rstLegislativeMaterial.Update
+    cnConnection.CommitTrans
+    rstLegislativeMaterial.Close
+    Set rstLegislativeMaterial = Nothing
+    
+
+End Sub
+
+Private Sub Save_Treatise(cnConnection As Connection, iRecordID As Integer, sEditionAndPrinting As String, sPublisher As String, _
+                sOriginalPublicationDate As String, sSeriesVolume As String, sTitleOfSeriesIfNotIssuedByAuthor As String, sCallNumber As String)
+
+    Set rstTreatises = New ADODB.Recordset
+
+    With rstTreatises
+        .ActiveConnection = cnConnection
+        .CursorLocation = adUseClient
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblTreatises")
+    End With
+
+    cnConnection.BeginTrans
+        If Me.tglNewRecords.Value = True Then rstTreatises.AddNew
+        If Me.tglNewRecords.Value = False Then
+            rstTreatises.MoveFirst
+            Do Until rstTreatises!RecordID = iRecordID
+                rstTreatises.MoveNext
+            Loop
+        End If
+        If Not rstTreatises.EOF Then
+        'If Me.tglNewRecords = True Then rstTreatises.AddNew
+            rstTreatises!RecordID = iRecordID
+            If sEditionAndPrinting <> "" Then
+                rstTreatises!EditionAndPrinting = sEditionAndPrinting
+            Else
+                rstTreatises!EditionAndPrinting = Null
+            End If
+                                                    
+            If sPublisher <> "" Then
+                rstTreatises!Publisher = sPublisher
+            Else
+                rstTreatises!Publisher = Null
+            End If
+            
+            
+            If sOriginalPublicationDate <> "" Then
+                rstTreatises!OriginalPublicationDate = sOriginalPublicationDate
+            Else
+                rstTreatises!OriginalPublicationDate = Null
+            End If
+            
+            
+            If sSeriesVolume <> "" Then
+                rstTreatises!SeriesVolume = sSeriesVolume
+            Else
+                rstTreatises!SeriesVolume = Null
+            End If
+            
+            
+            If sTitleOfSeriesIfNotIssuedByAuthor <> "" Then
+                rstTreatises!TitleOfSeriesIfNotIssuedByAuthor = sTitleOfSeriesIfNotIssuedByAuthor
+            Else
+                rstTreatises!TitleOfSeriesIfNotIssuedByAuthor = Null
+            End If
+            
+            
+            If sCallNumber <> "" Then
+                rstTreatises!CallNumber = sCallNumber
+            Else
+                rstTreatises!CallNumber = Null
+            End If
+            
+        
+        End If
+        rstTreatises.Update
+    cnConnection.CommitTrans
+    rstTreatises.Close
+    Set rstTreatises = Nothing
+End Sub
+
+Private Sub Save_Unpublished(cnConnection As Connection, iRecordID As Integer, sUnpublishedWorkType As String, sThesisDissertationType As String, _
+                sPublicationMonth As String, sPublicationDay As String, sLocation As String)
+    Set rstUnpublishedWork = New ADODB.Recordset
+    With rstUnpublishedWork
+        .ActiveConnection = cnConnection
+        .CursorLocation = adUseClient
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblUnpublishedWork")
+    End With
+    
+    cnConnection.BeginTrans
+        If Me.tglNewRecords = True Then rstUnpublishedWork.AddNew
+        If Me.tglNewRecords.Value = False Then
+            rstUnpublishedWork.MoveFirst
+            Do Until rstUnpublishedWork!RecordID = iRecordID
+                rstUnpublishedWork.MoveNext
+            Loop
+        End If
+        If Not rstUnpublishedWork.EOF Then
+            rstUnpublishedWork!RecordID = rstRecords!RecordID
+            If sUnpublishedWorkType <> "" Then rstUnpublishedWork!Type = sUnpublishedWorkType
+            If sThesisDissertationType <> "" Then rstUnpublishedWork.Fields("Thesis/Dissertation Type") = sThesisDissertationType
+            If sPublicationMonth <> "" Then
+                rstUnpublishedWork!PublicationMonth = sPublicationMonth
+            Else
+                rstUnpublishedWork!PublicationMonth = Null
+            End If
+            
+            If sPublicationDay <> "" Then
+                rstUnpublishedWork!PublicationDay = sPublicationDay
+            Else
+                rstUnpublishedWork!PublicationMonth = Null
+            End If
+            
+            If sLocation <> "" Then
+                rstUnpublishedWork!Location = sLocation
+             Else
+                rstUnpublishedWork!Location = Null
+            End If
+        End If
+        rstUnpublishedWork.Update
+    cnConnection.CommitTrans
+    rstUnpublishedWork.Close
+    Set rstUnpublishedWork = Nothing
+
+
+End Sub
+
+Private Sub Save_Misc(cnConnection As Connection, iRecordID As Integer, sMiscellaneousType As String, sWorkingPaperInfo As String, _
+            sPublicationMonth As String, sLocation As String, sPublicationDay As String)
+    Set rstMisc = New ADODB.Recordset
+    With rstMisc
+        .ActiveConnection = cnConnection
+        .CursorType = adOpenKeyset
+        .CursorLocation = adUseClient
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblMisc")
+    End With
+    cnConnection.BeginTrans
+        
+        If ((Me.tglNewRecords = True)) Then rstMisc.AddNew
+        If Me.tglNewRecords.Value = False Then
+            rstMisc.MoveFirst
+            Do Until rstMisc!RecordID = iRecordID
+                rstMisc.MoveNext
+            Loop
+        End If
+        If Not rstMisc.EOF Then
+            rstMisc!RecordID = iRecordID
+            
+            
+            If sMiscellaneousType <> "" Then rstMisc!RecordType = sMiscellaneousType
+            
+            If sLocation <> "" Then
+                rstMisc!Location = sLocation
+            Else
+                rstMisc!Location = Null
+            End If
+            
+            If sWorkingPaperInfo <> "" Then
+                rstMisc!WorkingPaper = sWorkingPaperInfo
+            Else
+                rstMisc!WorkingPaper = Null
+            End If
+            
+            If sPublicationMonth <> "" Then
+                rstMisc!Month = sPublicationMonth
+            Else
+                rstMisc!Month = Null
+            End If
+            
+            If sPublicationDay <> "" Then
+                rstMisc!Day = sPublicationDay
+            Else
+                rstMisc!Day = Null
+            End If
+                
+        End If
+        rstMisc.Update
+    cnConnection.CommitTrans
+    rstMisc.Close
+    Set rstMisc = Nothing
+
+End Sub
+
+Private Sub Delete_AET_Keywords(cnConnection As Connection, rstAETDelete As Recordset, rstKeywordDelete As Recordset, iRecordID As Integer)
+        Set rstAETDelete = New Recordset
+        Set rstKeywordDelete = New Recordset
+        rstAETDelete.CursorLocation = adUseClient
+        rstKeywordDelete.CursorLocation = adUseClient
+        rstAETDelete.Open "Select * from tblRecordsAET WHERE RecordID=" & iRecordID, cnConnection, adOpenKeyset, adLockOptimistic
+        rstKeywordDelete.Open "Select * from tblRecordsKeywords WHERE RecordID=" & iRecordID, cnConnection, adOpenKeyset, adLockOptimistic
+        Do While Not rstAETDelete.EOF
+            rstAETDelete.Delete
+            rstAETDelete.Update
+            rstAETDelete.MoveNext
+        Loop
+        
+        Do While Not rstKeywordDelete.EOF
+            rstKeywordDelete.Delete
+            rstKeywordDelete.Update
+            rstKeywordDelete.MoveNext
+        Loop
+        
+        rstAETDelete.Close
+        rstKeywordDelete.Close
+        Set rstAETDelete = Nothing
+        Set rstKeywordDelete = Nothing
+
+
+End Sub
+
+Private Sub Add_RecordsAETKeywords(cnConnection As Connection, iRecordID As Integer, rstRecordsAET As Recordset, rstRecordsKeywords As Recordset)
+    Dim icounter As Integer
+
+    Set rstRecordsAET = New ADODB.Recordset
+    With rstRecordsAET
+        .ActiveConnection = cnConnection
+        .CursorType = adOpenKeyset
+        .CursorLocation = adUseClient
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblRecordsAET")
+    End With
+    rstRecordsAET.MoveLast
+    
+    For icounter = 1 To cAuthors.Count
+        rstRecordsAET.AddNew
+            rstRecordsAET!RecordID = iRecordID
+            rstRecordsAET!AETID = cAuthors.Item(icounter)
+        rstRecordsAET.Update
+    Next
+       
+    For icounter = 1 To cEditors.Count
+        rstRecordsAET.AddNew
+            rstRecordsAET!RecordID = iRecordID
+            rstRecordsAET!AETID = cEditors.Item(icounter)
+        rstRecordsAET.Update
+    Next
+    
+    For icounter = 1 To cTranslators.Count
+        rstRecordsAET.AddNew
+            rstRecordsAET!RecordID = iRecordID
+            rstRecordsAET!AETID = cTranslators.Item(icounter)
+        rstRecordsAET.Update
+    Next
+           
+    rstRecordsAET.Close
+    Set rstRecordsAET = Nothing
+
+    Set rstRecordsKeywords = New ADODB.Recordset
+    With rstRecordsKeywords
+        .ActiveConnection = cnConnection
+        .CursorType = adOpenKeyset
+        .CursorLocation = adUseClient
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblRecordsKeywords")
+    End With
+        
+    
+    For icounter = 1 To cKeywords.Count
+        rstRecordsKeywords.AddNew
+            rstRecordsKeywords!RecordID = iRecordID
+            rstRecordsKeywords!KeywordID = cKeywords.Item(icounter)
+        rstRecordsKeywords.Update
+    Next
+    rstRecordsKeywords.Close
+    Set rstRecordsKeywords = Nothing
+
+
+End Sub
+
 
 Private Sub Position_Article_Form()
   With Me.lblVolume
@@ -4975,6 +5771,10 @@ Private Sub cmbRecordNumber_Click()
         Do Until rstRecords!RecordID = iRecNum
             rstRecords.MoveNext
         Loop
+        rstRemoteRecords.MoveFirst
+        Do Until rstRemoteRecords!RecordID = iRecNum
+            rstRemoteRecords.MoveNext
+        Loop
         'rstRecords.Find "RecordID=" & iRecNum
         Call Erase_Form
         Call Clear_Form
@@ -5070,6 +5870,19 @@ Private Sub cmdDelete_Click()
                         rstRecords.Update
                     cnWriteDatabase.CommitTrans
                     rstRecords.Requery
+                    Me.cmbRecordNumber.RemoveItem (iListindex)
+                End If
+                rstRemoteRecords.MoveFirst
+                Do Until rstRemoteRecords!RecordID = iRecordNumber
+                    rstRemoteRecords.MoveNext
+                Loop
+                If Not rstRemoteRecords.EOF Then
+                    On Error GoTo CancelErr
+                    cnWriteDatabase.BeginTrans
+                        rstRemoteRecords.Delete
+                        rstRemoteRecords.Update
+                    cnWriteDatabase.CommitTrans
+                    rstRemoteRecords.Requery
                     Me.cmbRecordNumber.RemoveItem (iListindex)
                 End If
                 Call cmdNextRecord_Click
@@ -5498,7 +6311,6 @@ Private Sub cmdSave_Click()
     Dim sSuDocNumber As String
     Dim rstAETDelete As ADODB.Recordset
     Dim rstKeywordDelete As ADODB.Recordset
-    Dim rstBigRecordIndex As ADODB.Recordset
     Dim iRecordID As Integer
     Dim icounter As Integer
     'Dim lAuthorID As Long
@@ -5650,824 +6462,67 @@ Private Sub cmdSave_Click()
     
     dDate = Now
     On Error GoTo CancelErr
-    cnWriteDatabase.BeginTrans
-        If Me.tglNewRecords.Value = True Then rstRecords.AddNew
-            
-            If sDateAdded <> "" Then rstRecords!DateRecordAdded = sDateAdded
-            If (Me.tglUpdateRecords.Value = True) Or (Me.tglImportRecords.Value = True) Then rstRecords!dateRecordUpdated = dDate
-            If sInputInitials <> "" Then rstRecords!InputInitials = sInputInitials
-            If sSourceType <> "" Then rstRecords!DocumentType = sSourceType
-            If sTitle <> "" Then rstRecords!Title = sTitle
-            If sPageNumber <> "" Then rstRecords!PageNumber = sPageNumber
-            If sYear <> "" Then rstRecords!PublicationYear = sYear
-            'If sNotes <> "" Then rstRecords!Notes = sNotes
-            If sURL <> "" Then
-                rstRecords!ParallelURL = sURL
-            Else
-                rstRecords!ParallelURL = Null
-            End If
-            rstRecords!LibraryCOllection = Me.chkLibraryCollection
-            rstRecords!Republished = Me.chkRepublished
-            
-            
-        rstRecords.Update
-    cnWriteDatabase.CommitTrans
+
+    Call Save_Main_Record(cnWriteDatabase, rstRecords, sDateAdded, sInputInitials, sSourceType, sTitle, sPageNumber, sYear, sURL, dDate)
+    Call Save_Main_Record(cnRemoteWriteDatabase, rstRemoteRecords, sDateAdded, sInputInitials, sSourceType, sTitle, sPageNumber, sYear, sURL, dDate) 'save to both databases
+    
     If Me.tglNewRecords = True Then iRecordID = rstRecords.Fields("RecordID")
     Select Case sSourceType
     
         Case "Chapter in Treatise"
-            Set rstChapters = New ADODB.Recordset
-            With rstChapters
-                .ActiveConnection = cnWriteDatabase
-                .CursorLocation = adUseClient
-                .CursorType = adOpenKeyset
-                .LockType = adLockOptimistic
-                .Open ("SELECT * from tblChapters")
-            End With
-    
-            cnWriteDatabase.BeginTrans
-                If Me.tglNewRecords = True Then rstChapters.AddNew
-    
-                If Me.tglNewRecords.Value = False Then
-                    rstChapters.MoveFirst
-                    Do Until rstChapters!RecordID = iRecordID
-                        rstChapters.MoveNext
-                    Loop
-                End If
-                If Not rstChapters.EOF Then
-                    'If Me.tglUpdateRecords = True Then rstChapters!chapterID = iChapterID
-            
-                    rstChapters!RecordID = iRecordID
-                    rstChapters!LargerWorkID = iLargerWorkID
-                    If sSeriesVolume <> "" Then
-                        rstChapters!SeriesVolume = sSeriesVolume
-                    Else
-                        rstChapters!SeriesVolume = Null
-                    End If
-                    
-                    If sTitleOfSeriesIfNotIssuedByAuthor <> "" Then
-                        rstChapters!TitleOfSeriesIfNotIssuedByAuthor = sTitleOfSeriesIfNotIssuedByAuthor
-                    Else
-                        rstChapters!TitleOfSeriesIfNotIssuedByAuthor = Null
-                    End If
-                    
-                End If
-                rstChapters.Update
-            cnWriteDatabase.CommitTrans
-            rstChapters.Close
-            Set rstChapters = Nothing
-        Case "Journal Article"
-            cnWriteDatabase.BeginTrans
-            
-            Set rstArticles = New ADODB.Recordset
-            With rstArticles
-                .ActiveConnection = cnWriteDatabase
-                .CursorType = adOpenKeyset
-                .CursorLocation = adUseClient
-                .LockType = adLockOptimistic
-                .Open ("SELECT * from tblArticles")
-            End With
+            Call Save_Chapter(cnWriteDatabase, iRecordID, iLargerWorkID, sSeriesVolume, sTitleOfSeriesIfNotIssuedByAuthor)
+            Call Save_Chapter(cnRemoteWriteDatabase, iRecordID, iLargerWorkID, sSeriesVolume, sTitleOfSeriesIfNotIssuedByAuthor)
 
-    
-            dDate = Now
-                If Me.tglNewRecords.Value = True Then rstArticles.AddNew
-                If Me.tglNewRecords.Value = False Then
-                    rstArticles.MoveFirst
-                    Do Until rstArticles!RecordID = iRecordID
-                        rstArticles.MoveNext
-                    Loop
-                End If
-                If Not rstArticles.EOF Then
-                    rstArticles!RecordID = iRecordID
-                    'rstArticles!recordID = rstRecords!recordID
-                    
-                    'If Me.tglUpdateRecords = True Then rstArticles!articleID = iArticleID
-            
-                    If sVolume <> "" Then
-                        rstArticles!Volume = sVolume
-                    Else
-                        rstArticles!Volume = Null
-                    End If
-                    If sPublicationMonth <> "" Then
-                        rstArticles!PublicationMonthOrSeason = sPublicationMonth
-                    Else
-                        rstArticles!PublicationMonthOrSeason = Null
-                    End If
-                    If sPublicationDay <> "" Then
-                        rstArticles!PublicationDay = sPublicationDay
-                    Else
-                        rstArticles!PublicationDay = Null
-                    End If
-                    If sArticleDesignation <> "" Then
-                        rstArticles!ArticleDesignationForCitation = sArticleDesignation
-                    Else
-                        rstArticles!ArticleDesignationForCitation = Null
-                    End If
-                    
-                    rstArticles!JournalID = iJournalID
-                End If
-                rstArticles.Update
-            cnWriteDatabase.CommitTrans
-            rstArticles.Close
-        Case "Legislative Material"
-            Set rstLegislativeMaterial = New ADODB.Recordset
-    
-            With rstLegislativeMaterial
-                .ActiveConnection = cnWriteDatabase
-                .CursorLocation = adUseClient
-                .CursorType = adOpenKeyset
-                .LockType = adLockOptimistic
-                .Open ("SELECT * from tblLegislativeMaterial")
-            End With
         
-            dDate = Now
-                cnWriteDatabase.BeginTrans
-                If Me.tglNewRecords = True Then rstLegislativeMaterial.AddNew
-                If Me.tglNewRecords.Value = False Then
-                    rstLegislativeMaterial.MoveFirst
-                    Do Until rstLegislativeMaterial!RecordID = iRecordID
-                        rstLegislativeMaterial.MoveNext
-                    Loop
-                End If
-                If Not rstLegislativeMaterial.EOF Then
-                    rstLegislativeMaterial!RecordID = iRecordID
-                    'If Me.tglUpdateRecords = True Then rstChapters!chapterID = iChapterID
+        Case "Journal Article"
+        
+            Call Save_Article(cnWriteDatabase, iRecordID, sVolume, sPublicationMonth, sPublicationDay, sArticleDesignation, iJournalID)
+            Call Save_Article(cnRemoteWriteDatabase, iRecordID, sVolume, sPublicationMonth, sPublicationDay, sArticleDesignation, iJournalID)
             
-                    rstLegislativeMaterial!materialtype = sLegislativeType
-                    If sNameOfHouse <> "" Then rstLegislativeMaterial!NameOfHouse = sNameOfHouse
-                    If sLegislativeType <> "" Then rstLegislativeMaterial!materialtype = sLegislativeType
-                    If sNumberOfCongress <> "" Then rstLegislativeMaterial!NumberOfCongress = sNumberOfCongress
-                    If sSessionOfCongress <> "" Then rstLegislativeMaterial!SessionOfCongress = sSessionOfCongress
-                    If sStateLegislativeSession <> "" Then rstLegislativeMaterial!StateLegislativeSession = sStateLegislativeSession
-                    If sUSCCANCitation <> "" Then rstLegislativeMaterial!USCCANCitation = sUSCCANCitation
-                    If sReportDocumentNumber <> "" Then rstLegislativeMaterial!ReportOrDocumentNumber = sReportDocumentNumber
-                    If sSuDocNumber <> "" Then rstLegislativeMaterial!SuDocNumber = sSuDocNumber
-                End If
-                rstLegislativeMaterial.Update
-            cnWriteDatabase.CommitTrans
-            rstLegislativeMaterial.Close
-            Set rstLegislativeMaterial = Nothing
             
+        Case "Legislative Material"
+            Call Save_Legislative(cnWriteDatabase, iRecordID, sLegislativeType, sNameOfHouse, sNumberOfCongress, sSessionOfCongress, _
+                    sStateLegislativeSession, sUSCCANCitation, sReportDocumentNumber, sSuDocNumber)
+            Call Save_Legislative(cnRemoteWriteDatabase, iRecordID, sLegislativeType, sNameOfHouse, sNumberOfCongress, sSessionOfCongress, _
+                    sStateLegislativeSession, sUSCCANCitation, sReportDocumentNumber, sSuDocNumber)
+                    
         Case "Treatise"
-            Set rstTreatises = New ADODB.Recordset
-
-            With rstTreatises
-                .ActiveConnection = cnWriteDatabase
-                .CursorLocation = adUseClient
-                .CursorType = adOpenKeyset
-                .LockType = adLockOptimistic
-                .Open ("SELECT * from tblTreatises")
-            End With
-    
-            cnWriteDatabase.BeginTrans
-                If Me.tglNewRecords.Value = True Then rstTreatises.AddNew
-                If Me.tglNewRecords.Value = False Then
-                    rstTreatises.MoveFirst
-                    Do Until rstTreatises!RecordID = iRecordID
-                        rstTreatises.MoveNext
-                    Loop
-                End If
-                If Not rstTreatises.EOF Then
-                'If Me.tglNewRecords = True Then rstTreatises.AddNew
-                    rstTreatises!RecordID = iRecordID
-                    If sEditionAndPrinting <> "" Then
-                        rstTreatises!EditionAndPrinting = sEditionAndPrinting
-                    Else
-                        rstTreatises!EditionAndPrinting = Null
-                    End If
-                                                            
-                    If sPublisher <> "" Then
-                        rstTreatises!Publisher = sPublisher
-                    Else
-                        rstTreatises!Publisher = Null
-                    End If
-                    
-                    
-                    If sOriginalPublicationDate <> "" Then
-                        rstTreatises!OriginalPublicationDate = sOriginalPublicationDate
-                    Else
-                        rstTreatises!OriginalPublicationDate = Null
-                    End If
-                    
-                    
-                    If sSeriesVolume <> "" Then
-                        rstTreatises!SeriesVolume = sSeriesVolume
-                    Else
-                        rstTreatises!SeriesVolume = Null
-                    End If
-                    
-                    
-                    If sTitleOfSeriesIfNotIssuedByAuthor <> "" Then
-                        rstTreatises!TitleOfSeriesIfNotIssuedByAuthor = sTitleOfSeriesIfNotIssuedByAuthor
-                    Else
-                        rstTreatises!TitleOfSeriesIfNotIssuedByAuthor = Null
-                    End If
-                    
-                    
-                    If sCallNumber <> "" Then
-                        rstTreatises!CallNumber = sCallNumber
-                    Else
-                        rstTreatises!CallNumber = Null
-                    End If
-                    
-                
-                End If
-                rstTreatises.Update
-            cnWriteDatabase.CommitTrans
-            rstTreatises.Close
-            Set rstTreatises = Nothing
+            Call Save_Treatise(cnWriteDatabase, iRecordID, sEditionAndPrinting, sPublisher, sOriginalPublicationDate, sSeriesVolume, _
+                    sTitleOfSeriesIfNotIssuedByAuthor, sCallNumber)
+            Call Save_Treatise(cnRemoteWriteDatabase, iRecordID, sEditionAndPrinting, sPublisher, sOriginalPublicationDate, sSeriesVolume, _
+                    sTitleOfSeriesIfNotIssuedByAuthor, sCallNumber)
+            
+            
             
         Case "Unpublished Work"
-            Set rstUnpublishedWork = New ADODB.Recordset
-            With rstUnpublishedWork
-                .ActiveConnection = cnWriteDatabase
-                .CursorLocation = adUseClient
-                .CursorType = adOpenKeyset
-                .LockType = adLockOptimistic
-                .Open ("SELECT * from tblUnpublishedWork")
-            End With
-            
-            cnWriteDatabase.BeginTrans
-                If Me.tglNewRecords = True Then rstUnpublishedWork.AddNew
-                If Me.tglNewRecords.Value = False Then
-                    rstUnpublishedWork.MoveFirst
-                    Do Until rstUnpublishedWork!RecordID = iRecordID
-                        rstUnpublishedWork.MoveNext
-                    Loop
-                End If
-                If Not rstUnpublishedWork.EOF Then
-                    rstUnpublishedWork!RecordID = rstRecords!RecordID
-                    If sUnpublishedWorkType <> "" Then rstUnpublishedWork!Type = sUnpublishedWorkType
-                    If sThesisDissertationType <> "" Then rstUnpublishedWork.Fields("Thesis/Dissertation Type") = sThesisDissertationType
-                    If sPublicationMonth <> "" Then
-                        rstUnpublishedWork!PublicationMonth = sPublicationMonth
-                    Else
-                        rstUnpublishedWork!PublicationMonth = Null
-                    End If
-                    
-                    If sPublicationDay <> "" Then
-                        rstUnpublishedWork!PublicationDay = sPublicationDay
-                    Else
-                        rstUnpublishedWork!PublicationMonth = Null
-                    End If
-                    
-                    If sLocation <> "" Then
-                        rstUnpublishedWork!Location = sLocation
-                     Else
-                        rstUnpublishedWork!Location = Null
-                    End If
-                End If
-                rstUnpublishedWork.Update
-            cnWriteDatabase.CommitTrans
-            rstUnpublishedWork.Close
-            Set rstUnpublishedWork = Nothing
-            
-        Case "Nonprint Material"
-            Set rstMisc = New ADODB.Recordset
-            With rstMisc
-                .ActiveConnection = cnWriteDatabase
-                .CursorType = adOpenKeyset
-                .CursorLocation = adUseClient
-                .LockType = adLockOptimistic
-                .Open ("SELECT * from tblMisc")
-            End With
-            cnWriteDatabase.BeginTrans
-                
-                If ((Me.tglNewRecords = True)) Then rstMisc.AddNew
-                If Me.tglNewRecords.Value = False Then
-                    rstMisc.MoveFirst
-                    Do Until rstMisc!RecordID = iRecordID
-                        rstMisc.MoveNext
-                    Loop
-                End If
-                If Not rstMisc.EOF Then
-                    rstMisc!RecordID = iRecordID
-                    
-                    
-                    If sMiscellaneousType <> "" Then rstMisc!RecordType = sMiscellaneousType
-                    If sLocation <> "" Then
-                        rstMisc!Location = sLocation
-                    Else
-                        rstMisc!Location = Null
-                    End If
-                    
-                    If sWorkingPaperInfo <> "" Then
-                        rstMisc!WorkingPaper = sWorkingPaperInfo
-                    Else
-                        rstMisc!WorkingPaper = Null
-                    End If
-                    
-                    If sPublicationMonth <> "" Then
-                        rstMisc!Month = sPublicationMonth
-                    Else
-                        rstMisc!Month = Null
-                    End If
-                    
-                    If sPublicationDay <> "" Then
-                        rstMisc!Day = sPublicationDay
-                    Else
-                        rstMisc!Day = Null
-                    End If
+            Call Save_Unpublished(cnWriteDatabase, iRecordID, sUnpublishedWorkType, sThesisDissertationType, sPublicationMonth, sPublicationDay, _
+                    sLocation)
+            Call Save_Unpublished(cnRemoteWriteDatabase, iRecordID, sUnpublishedWorkType, sThesisDissertationType, sPublicationMonth, sPublicationDay, _
+                    sLocation)
                         
-                End If
-                rstMisc.Update
-            cnWriteDatabase.CommitTrans
-            rstMisc.Close
-            Set rstMisc = Nothing
+        Case "Nonprint Material"
+            Call Save_Misc(cnWriteDatabase, iRecordID, sMiscellaneousType, sWorkingPaperInfo, sPublicationMonth, sLocation, sPublicationDay)
+            Call Save_Misc(cnRemoteWriteDatabase, iRecordID, sMiscellaneousType, sWorkingPaperInfo, sPublicationMonth, sLocation, sPublicationDay)
+
     End Select
     
     If (Me.tglUpdateRecords.Value = True) Or (Me.tglImportRecords.Value = True) Then
-        Set rstAETDelete = New Recordset
-        Set rstKeywordDelete = New Recordset
-        rstAETDelete.CursorLocation = adUseClient
-        rstKeywordDelete.CursorLocation = adUseClient
-        rstAETDelete.Open "Select * from tblRecordsAET WHERE RecordID=" & iRecordID, cnWriteDatabase, adOpenKeyset, adLockOptimistic
-        rstKeywordDelete.Open "Select * from tblRecordsKeywords WHERE RecordID=" & iRecordID, cnWriteDatabase, adOpenKeyset, adLockOptimistic
-        Do While Not rstAETDelete.EOF
-            rstAETDelete.Delete
-            rstAETDelete.Update
-            rstAETDelete.MoveNext
-        Loop
-        
-        Do While Not rstKeywordDelete.EOF
-            rstKeywordDelete.Delete
-            rstKeywordDelete.Update
-            rstKeywordDelete.MoveNext
-        Loop
-        
-        rstAETDelete.Close
-        rstKeywordDelete.Close
-        Set rstAETDelete = Nothing
-        Set rstKeywordDelete = Nothing
-
+        Call Delete_AET_Keywords(cnWriteDatabase, rstAETDelete, rstKeywordDelete, iRecordID)
+        Call Delete_AET_Keywords(cnRemoteWriteDatabase, rstAETDelete, rstKeywordDelete, iRecordID)
     End If
     
+    Call Add_RecordsAETKeywords(cnWriteDatabase, iRecordID, rstRecordsAET, rstRecordsKeywords)
+    Call Add_RecordsAETKeywords(cnRemoteWriteDatabase, iRecordID, rstRecordsAET, rstRecordsKeywords)
     
-    'If Me.tglNewRecords.Value = True Then
-        Set rstRecordsAET = New ADODB.Recordset
-        With rstRecordsAET
-            .ActiveConnection = cnWriteDatabase
-            .CursorType = adOpenKeyset
-            .CursorLocation = adUseClient
-            .LockType = adLockOptimistic
-            .Open ("SELECT * from tblRecordsAET")
-        End With
-        rstRecordsAET.MoveLast
-        'iRecordsAETID = rstRecordsAET!RecordsAETID
-        
-        For icounter = 1 To cAuthors.Count
-        '    iRecordsAETID = iRecordsAETID + 1
-            rstRecordsAET.AddNew
-                rstRecordsAET!RecordID = iRecordID
-                rstRecordsAET!AETID = cAuthors.Item(icounter)
-        '        rstRecordsAET!RecordsAETID = iRecordsAETID
-            rstRecordsAET.Update
-        Next
-        
-        
-        For icounter = 1 To cEditors.Count
-        '    iRecordsAETID = iRecordsAETID + 1
-            rstRecordsAET.AddNew
-                rstRecordsAET!RecordID = iRecordID
-                rstRecordsAET!AETID = cEditors.Item(icounter)
-        '        rstRecordsAET!RecordsAETID = iRecordsAETID
-
-            rstRecordsAET.Update
-        Next
-        
-        For icounter = 1 To cTranslators.Count
-        '    iRecordsAETID = iRecordsAETID + 1
-            rstRecordsAET.AddNew
-                rstRecordsAET!RecordID = iRecordID
-                rstRecordsAET!AETID = cTranslators.Item(icounter)
-        '        rstRecordsAET!RecordsAETID = iRecordsAETID
-            rstRecordsAET.Update
-        Next
-               
-        rstRecordsAET.Close
-        Set rstRecordsAET = Nothing
-        
-        Set rstRecordsKeywords = New ADODB.Recordset
-        With rstRecordsKeywords
-            .ActiveConnection = cnWriteDatabase
-            .CursorType = adOpenKeyset
-            .CursorLocation = adUseClient
-            .LockType = adLockOptimistic
-            .Open ("SELECT * from tblRecordsKeywords")
-        End With
-            
-        
-        For icounter = 1 To cKeywords.Count
-            rstRecordsKeywords.AddNew
-                rstRecordsKeywords!RecordID = iRecordID
-                rstRecordsKeywords!KeywordID = cKeywords.Item(icounter)
-            rstRecordsKeywords.Update
-        Next
-        rstRecordsKeywords.Close
-        Set rstRecordsKeywords = Nothing
-        
-'keyword subpart
-    sSQLString = "select * from qryRecordsKeywordsThesaurus where RecordID=" & iRecordID
-    Set rstRecordsKeywordsThesaurus = New Recordset
-    Set rstAllKeyword = New Recordset
-    Set cAllKeywords = New Collection
-    rstRecordsKeywordsThesaurus.CursorLocation = adUseClient
-    rstRecordsKeywordsThesaurus.Open sSQLString, cnReadDatabase, adOpenForwardOnly, adLockReadOnly
-    sSQLString = "select * from tblRecordsAllKeywords where RecordID=" & iRecordID
-    rstAllKeyword.CursorLocation = adUseClient
-    rstAllKeyword.Open sSQLString, cnWriteDatabase, adOpenKeyset, adLockOptimistic
-    On Error GoTo KeywordSaveErr
-    Do While Not rstRecordsKeywordsThesaurus.EOF
-        'iRecordID = rstRecordsKeywordsThesaurus!RecordID
-        sAllKeywordString = ""
-
-        Do While iRecordID = rstRecordsKeywordsThesaurus!RecordID
-            bDuplicate = False
-            If rstRecordsKeywordsThesaurus!KeywordOrCodeSection <> "" Then
-                bDuplicate = False
-                sCurrentKeyword = rstRecordsKeywordsThesaurus!KeywordOrCodeSection
-                For i = 1 To cAllKeywords.Count
-                    If cAllKeywords.Item(i) = sCurrentKeyword Then bDuplicate = True
-                Next
-                If Not bDuplicate Then cAllKeywords.Add sCurrentKeyword
-            End If
-    '
-            bDuplicate = False
-    '
-            If rstRecordsKeywordsThesaurus!ThesaurusEquivalent <> "" Then
-                bDuplicate = False
-                sCurrentKeyword = rstRecordsKeywordsThesaurus!ThesaurusEquivalent
-                For i = 1 To cAllKeywords.Count
-                    If cAllKeywords.Item(i) = sCurrentKeyword Then bDuplicate = True
-                Next
-                If Not bDuplicate Then cAllKeywords.Add sCurrentKeyword
-            End If
-            rstRecordsKeywordsThesaurus.MoveNext
-        Loop
-    '
-KeywordEOFErr:
-        For i = 1 To cAllKeywords.Count
-            If sAllKeywordString <> "" Then sAllKeywordString = sAllKeywordString & " "
-            sAllKeywordString = sAllKeywordString & cAllKeywords.Item(i)
-        Next
-    '
-        cnWriteDatabase.BeginTrans
-        
-        If rstAllKeyword.EOF Then rstAllKeyword.AddNew
-            rstAllKeyword!RecordID = iRecordID
-            rstAllKeyword!AllKeywords = sAllKeywordString
-        rstAllKeyword.Update
-        cnWriteDatabase.CommitTrans
-        
-        'Me.lblRecNum.Caption = "Record No. " & iRecordID & " processed."
-        'Me.lblRecNum.Refresh
-    Loop
-    If (Not rstAllKeyword.EOF) And cAllKeywords.Count = 0 Then
-        cnWriteDatabase.BeginTrans
-            rstAllKeyword.Delete
-            rstAllKeyword.Update
-        cnWriteDatabase.CommitTrans
-    End If
-    Set cAllKeywords = Nothing
-    '
-    'cnDatabase.Close
-    'Set cnDatabase = Nothing
-    'Set rstRecordsAuthors = Nothing
-    Set rstRecordsKeywordsThesaurus = Nothing
-    'Set rstAllAuthor = Nothing
-    Set rstAllKeyword = Nothing
-'end keyword part
-    
-    
-'author subpart
-    sSQLString = "select * from qryAuthors where RecordID=" & iRecordID
-    Set rstRecordsAuthors = New Recordset
-    rstRecordsAuthors.CursorLocation = adUseClient
-    rstRecordsAuthors.Open sSQLString, cnReadDatabase, adOpenForwardOnly, adLockReadOnly
-    
-    On Error GoTo AuthorSaveErr0
-    
-    sAuthorString = ""
-    sAuthorLastString = ""
-    If Not rstRecordsAuthors.EOF Then
-        rstRecordsAuthors.MoveLast
-        iAuthorCount = rstRecordsAuthors.RecordCount
-        rstRecordsAuthors.MoveFirst
-        sAETFMLS = Full_AET(rstRecordsAuthors, "FMLS")
-        Select Case iAuthorCount
-            Case 1
-                If rstRecordsAuthors!InstitutionalEntity <> "" Then
-                    sAuthorString = rstRecordsAuthors!InstitutionalEntity
-                    If sAETFMLS <> "" Then sAuthorString = sAuthorString & ", " & sAETFMLS
-                Else
-                    If sAETFMLS <> "" Then sAuthorString = sAETFMLS
-                End If
-                If rstRecordsAuthors!LastName <> "" Then sAuthorLastString = rstRecordsAuthors!LastName
-            Case 2
-                    If rstRecordsAuthors!InstitutionalEntity <> "" Then sAuthorString = rstRecordsAuthors!InstitutionalEntity & ","
-                    If sAETFMLS <> "" Then sAuthorString = sAETFMLS
-                    If rstRecordsAuthors!LastName <> "" Then sAuthorLastString = rstRecordsAuthors!LastName
-                    rstRecordsAuthors.MoveNext
-                    sAETFMLS = Full_AET(rstRecordsAuthors, "FMLS")
-                    sAuthorString = sAuthorString & " & "
-                    sAuthorLastString = sAuthorLastString & " " & rstRecordsAuthors!LastName
-                    
-                    
-                    sAuthorString = sAuthorString & sAETFMLS
-                    
-            Case Else
-                    If sAETFMLS <> "" Then sAuthorString = sAETFMLS & " et al."
-                    If rstRecordsAuthors!InstitutionalEntity <> "" Then sAuthorString = rstRecordsAuthors!InstitutionalEntity & ","
-                    If rstRecordsAuthors!LastName <> "" Then sAuthorLastString = rstRecordsAuthors!LastName
-                    rstRecordsAuthors.MoveNext
-                    Do While Not rstRecordsAuthors.EOF
-                        sAuthorLastString = sAuthorLastString & " " & rstRecordsAuthors!LastName
-                        rstRecordsAuthors.MoveNext
-                        
-                    Loop
-        End Select
-     End If
-     
-     ''here we can perhaps check to see if published in a different source **republished
-     
-     ''check to see if republished *************ADD SECTION LATER***************
-''look at qryCheckRepublished. Check to see if title is the same, and create a string variable of author
-''last names and check against the field in the query. Check to see if "republished" is checked before checking.
-''if there is a match in title and author from query, send user a message alert telling them to check the Record ID
-''and see if there is a match (because it might be a book edition or something else)
-''Even better: pop up a citation of the other record and ask if it is a republished source. If it is, mark both to republished
-
-'causing error now because Title can have a quote character in it and it messes up the SQL query. Commenting out for now.
-   'If Me.tglNewRecords = True Then
-   '     Set rstCheck = New ADODB.Recordset
-   '     sCheckString = "SELECT * FROM qryCheckRepublished WHERE (Title='" & sTitle & "')"
-   '     sCheckString = sCheckString & " AND (AllAuthorLastNameOnly = '" & sAuthorLastString & "')"
-   '     rstCheck.CursorType = adOpenForwardOnly
-   '     rstCheck.LockType = adLockReadOnly
-   '     rstCheck.CursorLocation = adUseClient
-   '     rstCheck.Open sCheckString, cnReadDatabase, adOpenForwardOnly, adLockReadOnly
-   '     bDuplicate = False
-   '     If Not rstCheck.EOF Then bDuplicate = True
-   '     If bDuplicate Then MsgBox "This work might be republished. Please verify, go back and update records to check appropriate checkboxes if true.", vbOKOnly + vbInformation, "Alert"
-   '
-   '     rstCheck.Close
-   '     Set rstCheck = Nothing
-   'End If
-
-
-
-     
-AuthorEOFErr0:
-    Call report.Get_AET_String(iRecordID, Me.cnReadDatabase, sAuthorCiteForm, sEditorCiteForm, cAuthors.Count, cEditors.Count)
-    
-    Set rstAETCiteForm = New ADODB.Recordset
-    
-    With rstAETCiteForm
-        .ActiveConnection = cnWriteDatabase
-        .CursorLocation = adUseClient
-        .CursorType = adOpenDynamic
-        .LockType = adLockOptimistic
-        .Open "Select * from tblRecordsAETCiteForm WHERE RecordID=" & iRecordID
-    End With
-    cnWriteDatabase.BeginTrans
-
-        If rstAETCiteForm.EOF Then rstAETCiteForm.AddNew
-        rstAETCiteForm!RecordID = iRecordID
-        rstAETCiteForm!authorciteform = sAuthorCiteForm
-        rstAETCiteForm!Editorciteform = sEditorCiteForm
-        
-        rstAETCiteForm.Update
-    
-    cnWriteDatabase.CommitTrans
-
-    
-    rstAETCiteForm.Close
-    Set rstAETCiteForm = Nothing
-
-    sSQLString = "select * from tblRecordsAuthorCiteForm where RecordID=" & iRecordID
-    Set rstAuthorCiteForm = New Recordset
-    rstAuthorCiteForm.CursorLocation = adUseClient
-    rstAuthorCiteForm.Open sSQLString, cnWriteDatabase, adOpenKeyset, adLockOptimistic
-   
-      Select Case sAuthorString
-          Case ""
-              If Not rstAuthorCiteForm.EOF Then
-                cnWriteDatabase.BeginTrans
-    
-                rstAuthorCiteForm.Delete
-                rstAuthorCiteForm.Update
-                
-                cnWriteDatabase.CommitTrans
-              End If
-          Case Else
-              cnWriteDatabase.BeginTrans
-    
-              If rstAuthorCiteForm.EOF Then rstAuthorCiteForm.AddNew
-              rstAuthorCiteForm!RecordID = iRecordID
-              rstAuthorCiteForm!authorciteform = sAuthorString
-              rstAuthorCiteForm.Update
-              
-              cnWriteDatabase.CommitTrans
-
-      End Select
-    rstAuthorCiteForm.Close
-    Set rstAuthorCiteForm = Nothing
-    On Error GoTo AuthorSaveErr1
-
-authorEOFErr1:
-    sSQLString = "select * from tblRecordsAllAuthorLastNameOnly where RecordID=" & iRecordID
-    Set rstAuthorLast = New Recordset
-    rstAuthorLast.CursorLocation = adUseClient
-    rstAuthorLast.Open sSQLString, cnWriteDatabase, adOpenKeyset, adLockOptimistic
-   
-      Select Case sAuthorLastString
-          Case ""
-              If Not rstAuthorLast.EOF Then
-                cnWriteDatabase.BeginTrans
-    
-                rstAuthorLast.Delete
-                rstAuthorLast.Update
-                
-                cnWriteDatabase.CommitTrans
-
-              End If
-          
-          Case Else
-              cnWriteDatabase.BeginTrans
-    
-              If rstAuthorLast.EOF Then rstAuthorLast.AddNew
-              rstAuthorLast!RecordID = iRecordID
-              rstAuthorLast!AllAuthorLastNameOnly = sAuthorLastString
-              rstAuthorLast.Update
-              
-              cnWriteDatabase.CommitTrans
-
-        End Select
-        'rstAuthorLast.Update
-    'cnDatabase.CommitTrans
-    rstAuthorLast.Close
-    Set rstAuthorLast = Nothing
-    'If Not rstRecordsAuthors.EOF Then rstRecordsAuthors.MoveFirst
-    If rstRecordsAuthors.RecordCount > 0 Then rstRecordsAuthors.MoveFirst
-    
-    On Error GoTo AuthorSaveErr
-    'Set rstRecordsAuthors = Nothing
-
-    'iRecordID = rstRecordsAuthors!RecordID
-    sFullAuthorString = ""
-    Do While iRecordID = rstRecordsAuthors!RecordID
-        If sFullAuthorString <> "" Then sFullAuthorString = sFullAuthorString & " "
-        If rstRecordsAuthors!InstitutionalEntity <> "" Then sFullAuthorString = sFullAuthorString & rstRecordsAuthors!InstitutionalEntity
-        If sFullAuthorString <> "" Then sFullAuthorString = sFullAuthorString & " "
-        sAETFMLS = Full_AET(rstRecordsAuthors, "FMLS")
-        If sAETFMLS <> "" Then sFullAuthorString = sFullAuthorString & sAETFMLS
-        'If rstRecordsAuthors!FMLS <> "" Then sFullAuthorString = sFullAuthorString & rstRecordsAuthors!FMLS
-        sAETFMLS = Full_AET(rstRecordsAuthors, "FL")
-        If sFullAuthorString <> "" Then sFullAuthorString = sFullAuthorString & " "
-        If sAETFMLS <> "" Then sFullAuthorString = sFullAuthorString & sAETFMLS
-        'If rstRecordsAuthors!FL <> "" Then sFullAuthorString = sFullAuthorString & rstRecordsAuthors!FL
-        sAETFMLS = Full_AET(rstRecordsAuthors, "LFM")
-        If sFullAuthorString <> "" Then sFullAuthorString = sFullAuthorString & " "
-        If sAETFMLS <> "" Then sFullAuthorString = sFullAuthorString & sAETFMLS
-        'If rstRecordsAuthors!LFM <> "" Then sFullAuthorString = sFullAuthorString & rstRecordsAuthors!LFM
-        rstRecordsAuthors.MoveNext
-        
-    Loop
-AuthorEOFErr:
-    sSQLString = "select * from tblRecordAllAuthor where RecordID=" & iRecordID
-    Set rstAllAuthor = New ADODB.Recordset
-    rstAllAuthor.CursorLocation = adUseClient
-    rstAllAuthor.Open sSQLString, cnWriteDatabase, adOpenKeyset, adLockOptimistic
-   
-        Select Case sFullAuthorString
-            Case ""
-                If Not rstAllAuthor.EOF Then
-                  cnWriteDatabase.BeginTrans
-      
-                    rstAllAuthor.Delete
-                    rstAllAuthor.Update
-                  cnWriteDatabase.CommitTrans
-                End If
-            Case Else
-                cnWriteDatabase.BeginTrans
-    
-                
-                If rstAllAuthor.EOF Then rstAllAuthor.AddNew
-                rstAllAuthor!RecordID = iRecordID
-                rstAllAuthor!AllAuthors = sFullAuthorString
-                rstAllAuthor.Update
-                cnWriteDatabase.CommitTrans
-        End Select
-    rstAllAuthor.Close
-    Set rstAllAuthor = Nothing
-NoAuthor:
-'end author part
-    Set rstBigRecordIndex = New ADODB.Recordset
-    With rstBigRecordIndex
-        .CursorLocation = adUseClient
-        .CursorType = adOpenDynamic
-        .LockType = adLockOptimistic
-        .ActiveConnection = cnWriteDatabase
-        .Open "Select * from tblBigTextIndex WHERE RecordID=" & iRecordID
-    End With
-    cnWriteDatabase.BeginTrans
-        If rstBigRecordIndex.EOF Then rstBigRecordIndex.AddNew
-        rstBigRecordIndex!RecordID = iRecordID
-        rstBigRecordIndex!Title = sTitle
-        rstBigRecordIndex!AllAuthors = sFullAuthorString
-        rstBigRecordIndex!AllAuthorLastNameOnly = sAuthorLastString
-        rstBigRecordIndex!AllKeywords = sAllKeywordString
-        rstBigRecordIndex!JournalTitle = sJournalTitle
-        rstBigRecordIndex!JournalTitleShortFOrm = sJournalTitleShortForm
-        rstBigRecordIndex.Update
-    cnWriteDatabase.CommitTrans
-    
-    rstBigRecordIndex.Close
-    Set rstBigRecordIndex = Nothing
-    If Me.tglNewRecords.Value = True Then
-        Me.cmbRecordNumber.RemoveItem (Me.cmbRecordNumber.ListCount - 1)
-        Me.cmbRecordNumber.AddItem iRecordID
-        Me.cmbRecordNumber.AddItem "New Record"
-        Call Set_Entry_Form
-    End If
-    Me.txtStatus.Text = "Saved"
-    rstRecords.Requery
-    If Me.tglUpdateRecords = True Then
-       If iRecordID <> rstRecords.Fields("RecordID").Value Then
-            rstRecords.MoveFirst
-            Do Until rstRecords!RecordID = iRecordID
-                rstRecords.MoveNext
-            Loop
-        End If
-    End If
-    'cnDatabase.Close
-    'sConnectionString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=..\database\ncpl.mdb"
-    'cnDatabase.Open (sConnectionString)
-    'rstJournals.Requery
-    'rstAuthors.Requery
-    'rstEditors.Requery
-    'rstTranslators.Requery
-    'rstArticles.Requery
-    'rstChapters.Requery
-    'rstMisc.Requery
-    'rstLegislativeMaterial.Requery
-    'rstRecords.Requery
-    'rstRecordsAET.Requery
-    'rstRecordsKeywords.Requery
-    'rstTreatises.Requery
-    'rstUnpublishedWork.Requery
-
-KeywordSaveErr:
-        Select Case Err
-        Case 3021
-            Resume KeywordEOFErr
-        Case 0
-            
-        Case Else
-            cnWriteDatabase.RollbackTrans
-            MsgBox "Error#" & Err.Number & ": " & Err.Description, _
-             vbOKOnly + vbCritical, "Saving Error"
-        End Select
-AuthorSaveErr:
-        Select Case Err
-        Case 3021
-            Resume AuthorEOFErr
-        
-        Case 0
-            
-        Case Else
-            cnWriteDatabase.RollbackTrans
-            MsgBox "Error#" & Err.Number & ": " & Err.Description, _
-             vbOKOnly + vbCritical, "Saving Error"
-        End Select
-AuthorSaveErr0:
-        Select Case Err
-        Case 3021
-            Resume AuthorEOFErr0
-        
-        Case 0
-            
-        Case Else
-            cnWriteDatabase.RollbackTrans
-            MsgBox "Error#" & Err.Number & ": " & Err.Description, _
-             vbOKOnly + vbCritical, "Saving Error"
-        End Select
-AuthorSaveErr1:
-        Select Case Err
-        Case 3021
-            Resume authorEOFErr1
-        Case 0
-        Case Else
-            cnWriteDatabase.RollbackTrans
-            MsgBox "Error#" & Err.Number & ": " & Err.Description, _
-             vbOKOnly + vbCritical, "Saving Error"
-        End Select
-       
+    Call Keyword_Thesaurus_AET_Index(cnWriteDatabase, cnReadDatabase, iRecordID, sTitle, sJournalTitle, sJournalTitleShortForm, rstRecords)
+    Call Keyword_Thesaurus_AET_Index(cnRemoteWriteDatabase, cnRemoteReadDatabase, iRecordID, sTitle, sJournalTitle, sJournalTitleShortForm, rstRemoteRecords)
 CancelErr:
     Select Case Err
         Case 0
         Case Else
             cnWriteDatabase.RollbackTrans
+            cnRemoteWriteDatabase.RollbackTrans
+            
             MsgBox "Error#" & Err.Number & ": " & Err.Description, _
              vbOKOnly + vbCritical, "Saving Error"
     End Select
@@ -6478,125 +6533,31 @@ End Sub
 
 Private Sub Form_Load()
     Dim sConnectionString As String
-    Dim sRemoteConnectionString As String
+    Dim sremoteConnectionString As String
     
     Dim dDate As Date
-    'Set rstJournals = New ADODB.Recordset
-    'Set rstAuthors = New ADODB.Recordset
-    'Set rstEditors = New ADODB.Recordset
-    'Set rstTranslators = New ADODB.Recordset
-    'Set rstArticles = New ADODB.Recordset
-    'Set rstChapters = New ADODB.Recordset
-    'Set rstMisc = New ADODB.Recordset
-    'Set rstLegislativeMaterial = New ADODB.Recordset
-    'Set rstRecords = New ADODB.Recordset
-    'Set rstRecordsAET = New ADODB.Recordset
-    'Set rstRecordsKeywords = New ADODB.Recordset
-    'Set rstTreatises = New ADODB.Recordset
-    'Set rstUnpublishedWork = New ADODB.Recordset
-
-    'Set rstLargerWorks = New ADODB.Recordset
-    'Set rstKeywords = New ADODB.Recordset
     Set cnReadDatabase = New ADODB.Connection
     Set cnWriteDatabase = New ADODB.Connection
     Set cnRemoteReadDatabase = New ADODB.Connection
     Set cnRemoteWriteDatabase = New ADODB.Connection
-    
-    
-    
+            
     Set cAuthors = New Collection
     Set cEditors = New Collection
     Set cTranslators = New Collection
     Set cKeywords = New Collection
     
     sConnectionString = "Provider=SQLOLEDB.1;Password=@boolean;Persist Security Info=True;User ID=dataentry;Initial Catalog=NCPLLive;Data Source=NCPL" 'for local access
-    sRemoteConnectionString = "Provider=SQLOLEDB.1;Data Source=awssqldev.nyulaw.me;Initial Catalog=NCPLLive;User Id=barnesw;Password=philly"
-    'sRemoteConnectionString = "Provider=MSDASQL; DRIVER=Sql Server;Server=awssqldev.nyulaw.me;Database=Ncpl;User Id=barnesw;Password=philly"
-    'Provider=MSDASQL; DRIVER=Sql Server; SERVER=p42800; DATABASE=myDatabase; UID=MyUserID; PWD=MyPassword
-    
-    
-    'Provider=sqloledb;Data Source=myServerAddress;Initial Catalog=myDataBase;
-'User Id=myUsername;Password=myPassword;
-    
+    sremoteConnectionString = "Provider=SQLOLEDB.1;Data Source=awssqldev.nyulaw.me;Initial Catalog=NCPLLive;User Id=barnesw;Password=philly"
     
     cnReadDatabase.Open (sConnectionString)
     cnWriteDatabase.Open (sConnectionString)
-    cnRemoteReadDatabase.Open (sRemoteConnectionString)
-    cnRemoteWriteDatabase.Open (sRemoteConnectionString)
-    
-    
+    cnRemoteReadDatabase.Open (sremoteConnectionString)
+    cnRemoteWriteDatabase.Open (sremoteConnectionString)
+        
     Me.cmbSourceType.CausesValidation = False
     Me.tglUpdateRecords = True
     Me.cmbAETChoice = "Author"
-    'With rstJournals
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from tblJournals")
-    'End With
     
-    'With rstAuthors
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from qryAETRecords WHERE AETType='Author'")
-    'End With
-    
-    'With rstEditors
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from qryAETRecords WHERE AETType='Editor'")
-    'End With
-    
-    'With rstTranslators
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from qryAETRecords WHERE AETType='Translator'")
-    'End With
-    
-    'With rstLargerWorks
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from tblLargerWorks")
-    'End With
-    
-    'With rstKeywords
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from tblKeywords")
-    'End With
-   
-    'With rstArticles
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from tblArticles")
-    'End With
-
-    'With rstChapters
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from tblChapters")
-    'End With
-    
-    'With rstMisc
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from tblMisc")
-    'End With
-    
-    'With rstLegislativeMaterial
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from tblLegislativeMaterial")
-    'End With
     Set rstRecords = New ADODB.Recordset
     rstRecords.CursorLocation = adUseClient
     With rstRecords
@@ -6605,43 +6566,22 @@ Private Sub Form_Load()
         .LockType = adLockOptimistic
         .Open ("SELECT * from tblRecords")
     End With
-    'rstRecords.MoveFirst
-    'With rstRecordsAET
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from tblRecordsAET")
-    'End With
     
-    'With rstRecordsKeywords
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from tblRecordsKeywords")
-    'End With
+    Set rstRemoteRecords = New ADODB.Recordset
+    rstRemoteRecords.CursorLocation = adUseClient
+    With rstRemoteRecords
+        .ActiveConnection = cnRemoteWriteDatabase
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblRecords")
+    End With
     
-    'With rstTreatises
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from tblTreatises")
-    'End With
-    
-    'With rstUnpublishedWork
-    '    .ActiveConnection = cnWriteDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from tblUnpublishedWork")
-    'End With
     dDate = Now
-    'Me.txtDateAdded = Left(dDate, 7)
     
     Call Populate_Comboboxes
     Call Erase_Form
     If tglUpdateRecords.Value = True Then
         Me.cmbRecordNumber.ListIndex = 0
-        'rstRecords.MoveFirst
-        'Call Fill_Form
     End If
 End Sub
 
@@ -6806,6 +6746,7 @@ Private Sub Form_Unload(Cancel As Integer)
     'rstMisc.Close
     'rstLegislativeMaterial.Close
     rstRecords.Close
+    rstRemoteRecords.Close
     'rstRecordsAET.Close
     'rstRecordsKeywords.Close
     'rstTreatises.Close
@@ -6996,7 +6937,8 @@ Private Sub Fill_Form()
     Set rstQryKeywords = New ADODB.Recordset
     'If rstRecords.EOF Then rstRecords.MoveFirst
     If rstRecords.EOF Then rstRecords.MoveLast
-
+    If rstRemoteRecords.EOF Then rstRemoteRecords.MoveLast
+    
     'Me.cmbRecordNumber.Text = rstRecords!recordid
     Me.txtTitle.Text = rstRecords!Title
     Me.cmbSourceType.Text = rstRecords!DocumentType
@@ -7304,6 +7246,8 @@ Private Sub tglUpdateRecords_Click()
         'rstRecords.Requery
         Call Refresh_Record_List
         rstRecords.MoveFirst
+        rstRemoteRecords.MoveFirst
+        
         Me.cmbRecordNumber.Enabled = True
         Me.cmbRecordNumber = rstRecords!RecordID
     End If
@@ -7575,6 +7519,15 @@ Private Sub Refresh_Record_List()
         .LockType = adLockOptimistic
         .Open ("SELECT * from tblRecords")
     End With
+    
+    rstRemoteRecords.Close
+    With rstRemoteRecords
+        .ActiveConnection = cnRemoteWriteDatabase
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblRecords")
+    End With
+    
     Call frmMain.populate_RecordID_List
     frmMain.cmbRecordNumber.ListIndex = 0
     
