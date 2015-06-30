@@ -174,6 +174,30 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+Private Sub Save_LargerWork(rstLargerWorkCheck As Recordset, cnConnection As Connection, sLargerWork As String, _
+        sEditionAndPrinting As String, sPublisher As String, sCallNumber As String, sTitleOfSeriesIfNotIssuedByAuthor As String, _
+        sSeriesVolume As String, sOriginalPublicationDate As String, bAllChaptersBySameAuthor As Boolean)
+            
+    With rstLargerWorkCheck
+        .ActiveConnection = cnConnection
+        .CursorType = adOpenKeyset
+        .CursorLocation = adUseClient
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblLargerWorks")
+    End With
+            
+    rstLargerWorkCheck.AddNew
+        If sLargerWork <> "" Then rstLargerWorkCheck!LargerWorkTitle = sLargerWork
+        If sEditionAndPrinting <> "" Then rstLargerWorkCheck!EditionAndPrinting = sEditionAndPrinting
+        If sPublisher <> "" Then rstLargerWorkCheck!Publisher = sPublisher
+        If sCallNumber <> "" Then rstLargerWorkCheck!CallNumber = sCallNumber
+        If sTitleOfSeriesIfNotIssuedByAuthor <> "" Then rstLargerWorkCheck!TitleOfSeriesIfNotIssuedByAuthor = sTitleOfSeriesIfNotIssuedByAuthor
+        If sSeriesVolume <> "" Then rstLargerWorkCheck!SeriesVolume = sSeriesVolume
+        If sOriginalPublicationDate <> "" Then rstLargerWorkCheck!OriginalPublicationDate = sOriginalPublicationDate
+        rstLargerWorkCheck!AllChaptersBySameAuthor = bAllChaptersBySameAuthor
+    rstLargerWorkCheck.Update
+End Sub
+
 
 Private Sub cmdCancel_Click()
     Unload Me
@@ -199,7 +223,7 @@ Private Sub cmdSave_Click()
         Set rstLargerWorkCheck = New ADODB.Recordset
         sSource = "SELECT * FROM tblLargerWorks"
         rstLargerWorkCheck.CursorLocation = adUseClient
-        rstLargerWorkCheck.Open sSource, frmMain.cnWriteDatabase, adOpenKeyset, adLockOptimistic
+        rstLargerWorkCheck.Open sSource, frmMain.cnReadDatabase, adOpenKeyset, adLockOptimistic
         sLargerWork = Me.txtLargerWorkTitle.Text
         rstLargerWorkCheck.MoveFirst
         Do Until rstLargerWorkCheck.EOF
@@ -210,6 +234,7 @@ Private Sub cmdSave_Click()
             End If
             rstLargerWorkCheck.MoveNext
         Loop
+                    
         sEditionAndPrinting = Me.txtEditionAndPrinting.Text
         sPublisher = Me.txtPublisher.Text
         sCallNumber = Me.txtCallNumber.Text
@@ -217,16 +242,22 @@ Private Sub cmdSave_Click()
         sSeriesVolume = Me.txtSeriesVolume.Text
         sTitleOfSeriesIfNotIssuedByAuthor = Me.txtTitleOfSeriesIfNotIssuedByAuthor.Text
         bAllChaptersBySameAuthor = Me.chkAllChaptersBySameAuthor.Value
-        rstLargerWorkCheck.AddNew
-            If sLargerWork <> "" Then rstLargerWorkCheck!LargerWorkTitle = sLargerWork
-            If sEditionAndPrinting <> "" Then rstLargerWorkCheck!EditionAndPrinting = sEditionAndPrinting
-            If sPublisher <> "" Then rstLargerWorkCheck!Publisher = sPublisher
-            If sCallNumber <> "" Then rstLargerWorkCheck!CallNumber = sCallNumber
-            If sTitleOfSeriesIfNotIssuedByAuthor <> "" Then rstLargerWorkCheck!TitleOfSeriesIfNotIssuedByAuthor = sTitleOfSeriesIfNotIssuedByAuthor
-            If sSeriesVolume <> "" Then rstLargerWorkCheck!SeriesVolume = sSeriesVolume
-            If sOriginalPublicationDate <> "" Then rstLargerWorkCheck!OriginalPublicationDate = sOriginalPublicationDate
-            rstLargerWorkCheck!AllChaptersBySameAuthor = bAllChaptersBySameAuthor
-        rstLargerWorkCheck.Update
+        
+        Set rstLargerWorkCheck = Nothing
+        Set rstLargerWorkCheck = New ADODB.Recordset
+        
+        
+        Call Save_LargerWork(rstLargerWorkCheck, frmMain.cnRemoteWriteDatabase, sLargerWork, _
+        sEditionAndPrinting, sPublisher, sCallNumber, sTitleOfSeriesIfNotIssuedByAuthor, _
+        sSeriesVolume, sOriginalPublicationDate, bAllChaptersBySameAuthor)
+        
+        Set rstLargerWorkCheck = Nothing
+        Set rstLargerWorkCheck = New ADODB.Recordset
+        
+        Call Save_LargerWork(rstLargerWorkCheck, frmMain.cnWriteDatabase, sLargerWork, _
+        sEditionAndPrinting, sPublisher, sCallNumber, sTitleOfSeriesIfNotIssuedByAuthor, _
+        sSeriesVolume, sOriginalPublicationDate, bAllChaptersBySameAuthor)
+        
         
         iLargerWorkID = rstLargerWorkCheck!LargerWorkID
         rstLargerWorkCheck.Requery
@@ -234,10 +265,7 @@ Private Sub cmdSave_Click()
         frmMain.cmbLargerWorkTitle.AddItem sLargerWork
         frmMain.cmbLargerWorkTitle.Text = sLargerWork
         frmMain.txtLargerWorkID = iLargerWorkID
-        'frmMain.txtJournalTitleShortForm.Text = sJournalTitleShortForm
-        'frmMain.cmbPagination = sPagination
-        'frmMain.txtCallNumber = sCallNumber
-        'frmMain.txtPlaceOfPublication = sPlaceOfPublication
+        
         Unload Me
         Call Clear_Form
         rstLargerWorkCheck.Close

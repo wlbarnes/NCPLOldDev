@@ -146,6 +146,26 @@ Private Sub cmdCancel_Click()
     Unload Me
 End Sub
 
+Private Sub Save_AET(rstAuthorTest As Recordset, cnConnection As Connection, sInstitutionalEntity As String, sFirstName As String, _
+            sMiddleName As String, sLastName As String, sSuffix As String, sType As String)
+    With rstAuthorTest
+        .ActiveConnection = cnConnection
+        .CursorType = adOpenKeyset
+        .CursorLocation = adUseClient
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblAuthorsEditorsTranslators")
+    End With
+    rstAuthorTest.AddNew
+        If sInstitutionalEntity <> "" Then rstAuthorTest!InstitutionalEntity = sInstitutionalEntity
+        If sFirstName <> "" Then rstAuthorTest!FirstName = sFirstName
+        If sMiddleName <> "" Then rstAuthorTest!MiddleName = sMiddleName
+        If sLastName <> "" Then rstAuthorTest!LastName = sLastName
+        If sSuffix <> "" Then rstAuthorTest!Suffix = sSuffix
+        If sType <> "" Then rstAuthorTest!AETType = sType
+    rstAuthorTest.Update
+        
+End Sub
+
 Private Sub cmdSave_Click()
     Dim sFirstName As String
     Dim sMiddleName As String
@@ -171,35 +191,35 @@ Private Sub cmdSave_Click()
         Cancel = True
     Else
     
-    Set rstAuthorTest = New ADODB.Recordset
-    With rstAuthorTest
-        .ActiveConnection = frmMain.cnWriteDatabase
-        .CursorType = adOpenKeyset
-        .CursorLocation = adUseClient
-        .LockType = adLockOptimistic
-        .Open ("SELECT * from tblAuthorsEditorsTranslators")
-    End With
+    
         sFirstName = Me.txtFirstName.Text
         sMiddleName = Me.txtMiddleName.Text
         sLastName = Me.txtLastName.Text
         sInstitutionalEntity = Me.txtInstitutionalEntity.Text
         sSuffix = Me.txtSuffix.Text
         sType = Me.cmbType.Text
-        
+        Set rstAuthorTest = New ADODB.Recordset
+        With rstAuthorTest
+            .ActiveConnection = frmMain.cnReadDatabase
+            .CursorType = adOpenKeyset
+            .CursorLocation = adUseClient
+            .LockType = adLockOptimistic
+            .Open ("SELECT * from tblAuthorsEditorsTranslators")
+        End With
         Do Until rstAuthorTest.EOF
             If IsNull(rstAuthorTest!InstitutionalEntity) Then sInstitutionalEntityTest = "" _
-                Else sInstitutionalEntityTest = rstAuthorTest!InstitutionalEntity
+                Else: sInstitutionalEntityTest = rstAuthorTest!InstitutionalEntity
             
             If IsNull(rstAuthorTest!FirstName) Then sFirstNameTest = "" _
-                Else sFirstNameTest = rstAuthorTest!FirstName
+                Else: sFirstNameTest = rstAuthorTest!FirstName
             If IsNull(rstAuthorTest!MiddleName) Then sMiddleNameTest = "" _
-                Else sMiddleNameTest = rstAuthorTest!MiddleName
+                Else: sMiddleNameTest = rstAuthorTest!MiddleName
             If IsNull(rstAuthorTest!LastName) Then sLastNameTest = "" _
-                Else sLastNameTest = rstAuthorTest!LastName
+                Else: sLastNameTest = rstAuthorTest!LastName
             If IsNull(rstAuthorTest!Suffix) Then sSuffixTest = "" _
-                Else sSuffixTest = rstAuthorTest!Suffix
+                Else: sSuffixTest = rstAuthorTest!Suffix
             If IsNull(rstAuthorTest!AETType) Then sTypeTest = "" _
-                Else sTypeTest = rstAuthorTest!AETType
+                Else: sTypeTest = rstAuthorTest!AETType
             
             If (sInstitutionalEntityTest = sInstitutionalEntity) And _
             (sFirstNameTest = sFirstName) And _
@@ -214,22 +234,22 @@ Private Sub cmdSave_Click()
             End If
             rstAuthorTest.MoveNext
         Loop
-        rstAuthorTest.AddNew
-            If sInstitutionalEntity <> "" Then rstAuthorTest!InstitutionalEntity = sInstitutionalEntity
-            If sFirstName <> "" Then rstAuthorTest!FirstName = sFirstName
-            If sMiddleName <> "" Then rstAuthorTest!MiddleName = sMiddleName
-            If sLastName <> "" Then rstAuthorTest!LastName = sLastName
-            If sSuffix <> "" Then rstAuthorTest!Suffix = sSuffix
-            If sType <> "" Then rstAuthorTest!AETType = sType
-        rstAuthorTest.Update
+        Set rstAuthorTest = Nothing
+        Set rstAuthorTest = New ADODB.Recordset
+        
+        Call Save_AET(rstAuthorTest, frmMain.cnRemoteWriteDatabase, sInstitutionalEntity, sFirstName, sMiddleName, sLastName, sSuffix, sType)
+        
+        Set rstAuthorTest = Nothing
+        Set rstAuthorTest = New ADODB.Recordset
+        
+        Call Save_AET(rstAuthorTest, frmMain.cnWriteDatabase, sInstitutionalEntity, sFirstName, sMiddleName, sLastName, sSuffix, sType)
+
+        
+        
         iAETID = rstAuthorTest!AETID
         Select Case sType
             Case "Author"
-                'frmMain.rstAuthors.Requery
-                'frmMain.rstAuthors.MoveFirst
-                'frmMain.rstAuthors.Find ("AETID = " & iAETID)
                 sFullName = frmMain.Full_AET_Name(rstAuthorTest)
-                'sItem = frmMain.rstAuthors.Fields("FullName").Value & " (ID: " & iAETID & ")"
                 sItem = sFullName & " (ID: " & iAETID & ")"
                 
                 frmMain.lstAuthors.AddItem sItem
@@ -245,10 +265,6 @@ ExitHere:
 
         
             Case "Editor"
-                'frmMain.rstEditors.Requery
-                'frmMain.rstEditors.MoveFirst
-                'frmMain.rstEditors.Find ("AETID = " & iAETID)
-                'sItem = frmMain.rstEditors.Fields("FullName").Value & " (ID: " & frmMain.rstEditors!AETID & ")"
                 sFullName = frmMain.Full_AET_Name(rstAuthorTest)
                 sItem = sFullName & " (ID: " & iAETID & ")"
                 frmMain.lstEditors.AddItem sItem
@@ -282,15 +298,6 @@ ExitHereTranslator:
                 'frmMain.rstTranslators.Requery
         
         End Select
-        
-        
-        'frmMain.cmbJournalTitle.AddItem sJournalTitle
-        'frmMain.cmbJournalTitle.Text = sJournalTitle
-        'frmMain.txtJournalID = iJournalID
-        'frmMain.txtJournalTitleShortForm.Text = sJournalTitleShortForm
-        'frmMain.cmbPagination = sPagination
-        'frmMain.txtCallNumber = sCallNumber
-        'frmMain.txtPlaceOfPublication = sPlaceOfPublication
         Unload Me
         Call Clear_Form
     rstAuthorTest.Close

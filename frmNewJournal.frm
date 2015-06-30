@@ -133,6 +133,32 @@ Private Sub cmdCancel_Click()
     Unload Me
 End Sub
 
+Private Sub Save_Journal(rstJournalCheck As Recordset, cnConnection As Connection, sJournalTitle As String, _
+        sJournalTitleShortForm As String, sPagination As String, sCallNumber As String, sPlaceOfPublication As String)
+        
+    With rstJournalCheck
+        .ActiveConnection = cnConnection
+        .CursorType = adOpenKeyset
+        .CursorLocation = adUseClient
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblJournals")
+    End With
+        
+    If Me.Caption = "Edit Journal" Then
+        rstJournalCheck.MoveFirst
+        Do Until rstJournalCheck!JournalTitle = sJournalTitle
+            rstJournalCheck.MoveNext
+        Loop
+    End If
+    If Me.Caption = "New Journal" Then rstJournalCheck.AddNew
+        If sJournalTitle <> "" Then rstJournalCheck!JournalTitle = sJournalTitle
+        If sJournalTitleShortForm <> "" Then rstJournalCheck!JournalTitleShortFOrm = sJournalTitleShortForm
+        If sPagination <> "" Then rstJournalCheck!Pagination = sPagination
+        If sCallNumber <> "" Then rstJournalCheck!CallNumber = sCallNumber
+        rstJournalCheck!PlaceOfPublication = sPlaceOfPublication
+    rstJournalCheck.Update
+End Sub
+
 Private Sub cmdSave_Click()
     Dim sJournalTitle As String
     Dim sJournalTitleShortForm As String
@@ -151,7 +177,7 @@ Private Sub cmdSave_Click()
         sSource = "SELECT * FROM tblJournals"
         Set rstJournalCheck = New ADODB.Recordset
         rstJournalCheck.CursorLocation = adUseClient
-        rstJournalCheck.Open sSource, frmMain.cnWriteDatabase, adOpenKeyset, adLockOptimistic
+        rstJournalCheck.Open sSource, frmMain.cnReadDatabase, adOpenKeyset, adLockOptimistic
         If Me.Caption = "New Journal" Then
             rstJournalCheck.MoveFirst
             Do Until rstJournalCheck.EOF
@@ -163,23 +189,21 @@ Private Sub cmdSave_Click()
                 rstJournalCheck.MoveNext
             Loop
         End If
+        
         sJournalTitleShortForm = Me.txtNewJournalShortForm.Text
         sPagination = Me.cmbPagination.Text
         sCallNumber = Me.txtCallNumber.Text
         sPlaceOfPublication = Me.txtPlaceOfPublication.Text
-        If Me.Caption = "Edit Journal" Then
-            rstJournalCheck.MoveFirst
-            Do Until rstJournalCheck!JournalTitle = sJournalTitle
-                rstJournalCheck.MoveNext
-            Loop
-        End If
-        If Me.Caption = "New Journal" Then rstJournalCheck.AddNew
-            If sJournalTitle <> "" Then rstJournalCheck!JournalTitle = sJournalTitle
-            If sJournalTitleShortForm <> "" Then rstJournalCheck!JournalTitleShortFOrm = sJournalTitleShortForm
-            If sPagination <> "" Then rstJournalCheck!Pagination = sPagination
-            If sCallNumber <> "" Then rstJournalCheck!CallNumber = sCallNumber
-            rstJournalCheck!PlaceOfPublication = sPlaceOfPublication
-        rstJournalCheck.Update
+        
+        Set rstJournalCheck = Nothing
+        Set rstJournalCheck = New ADODB.Recordset
+                
+        Call Save_Journal(rstJournalCheck, frmMain.cnRemoteWriteDatabase, sJournalTitle, sJournalTitleShortForm, sPagination, sCallNumber, sPlaceOfPublication)
+        
+        Set rstJournalCheck = Nothing
+        Set rstJournalCheck = New ADODB.Recordset
+        Call Save_Journal(rstJournalCheck, frmMain.cnWriteDatabase, sJournalTitle, sJournalTitleShortForm, sPagination, sCallNumber, sPlaceOfPublication)
+        
         iJournalID = rstJournalCheck!JournalID
         rstJournalCheck.Requery
         Call frmMain.Populate_Journal_Combobox
