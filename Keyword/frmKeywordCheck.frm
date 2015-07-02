@@ -310,7 +310,7 @@ Private Sub cmdCombine_Click()
 End Sub
 
 Private Sub cmdGenThesaurus_Click()
-    Me.Hide
+    Unload Me
     Call frmThesaurusEntry.Show
     Call frmThesaurusEntry.fill_list
 End Sub
@@ -333,16 +333,6 @@ Private Sub cmdStack_Click()
 End Sub
 
 Private Sub Form_Load()
-    'Set rstKeywords = New ADODB.Recordset
-    'Set rstThesaurus = New ADODB.Recordset
-    'Set cKeywordID = New Collection
-    
-    'With rstKeywords
-    '    .ActiveConnection = frmKeywordChange.cnDatabase
-    '    .CursorType = adOpenKeyset
-    '    .LockType = adLockOptimistic
-    '    .Open ("SELECT * from tblKeywords")
-    'End With
     
     Call Fill_KT_List
     Call Fill_AT_List
@@ -488,7 +478,6 @@ Private Sub lstAllThesaurus_DblClick()
     
     If Me.lblThesaurusID.Caption = "Thesaurus ID" Then
         iThesaurusID = Me.txtAllThesaurusID
-        'frmKeywordChange.rstKeywordsThesaurus.Requery
         frmKeywordChange.cnDatabase.BeginTrans
         On Error GoTo data_Error
         
@@ -503,29 +492,29 @@ Private Sub lstAllThesaurus_DblClick()
                 End If
             frmKeywordChange.rstKeywordsThesaurus.Update
         frmKeywordChange.cnDatabase.CommitTrans
+'save to remote database
+        frmKeywordChange.cnRemoteDatabase.BeginTrans
+        On Error GoTo data_Error
+        
+            frmKeywordChange.rstRemoteKeywordsThesaurus.AddNew
+                frmKeywordChange.rstRemoteKeywordsThesaurus!KeywordID = iKeywordID
+                frmKeywordChange.rstRemoteKeywordsThesaurus!ThesaurusID = iThesaurusID
+                If Me.chkAddAsCategory.Value = 1 Then
+                    frmKeywordChange.rstRemoteKeywordsThesaurus!LargerCategory = True
+                Else
+                    frmKeywordChange.rstRemoteKeywordsThesaurus!LargerCategory = False
+
+                End If
+            frmKeywordChange.rstRemoteKeywordsThesaurus.Update
+        frmKeywordChange.cnRemoteDatabase.CommitTrans
+
+        
+        
     End If
         
     If Me.lblThesaurusID.Caption = "Stack ID" Then
         iStackID = Me.txtAllThesaurusID.Text
         
-'first get thesaurus ids from stack junction database, put them in a collection
-        'Set rstStackThesaurus = New ADODB.Recordset
-        'With rstStackThesaurus
-        '    .CursorLocation = adUseClient
-        '    .ActiveConnection = frmKeywordChange.cnDatabase
-        '    .CursorType = adOpenForwardOnly
-        '    .LockType = adLockReadOnly
-        '    .Open ("SELECT ThesaurusID from tblThesaurusStackJunction where ThesaurusStackID=" & iStackID)
-        'End With
-        'Set cThesaurusID = New Collection
-        'If Not rstStackThesaurus.EOF Then
-        '    Do While Not rstStackThesaurus.EOF
-        '        iThesaurusID = rstStackThesaurus!ThesaurusID
-        '        cThesaurusID.Add iThesaurusID
-        '        rstStackThesaurus.MoveNext
-        '    Loop
-        'End If
-        'Set rstStackThesaurus = Nothing
 'next get thesaurus ids for keyword
         Set rstCheckKeywordThesaurus = New Recordset
         
@@ -572,18 +561,28 @@ Private Sub lstAllThesaurus_DblClick()
         
         Next
         frmKeywordChange.cnDatabase.CommitTrans
+        
+        
+        frmKeywordChange.rstRemoteKeywordsThesaurus.Requery
+        frmKeywordChange.cnRemoteDatabase.BeginTrans
+        On Error GoTo data_Error
+        For i = 1 To cThesaurusID.Count
+            frmKeywordChange.rstRemoteKeywordsThesaurus.AddNew
+                frmKeywordChange.rstRemoteKeywordsThesaurus!KeywordID = iKeywordID
+                frmKeywordChange.rstRemoteKeywordsThesaurus!ThesaurusID = cThesaurusID.Item(i)
+                If Me.chkAddAsCategory.Value = 1 Then
+                    frmKeywordChange.rstRemoteKeywordsThesaurus!LargerCategory = True
+                End If
+            frmKeywordChange.rstRemoteKeywordsThesaurus.Update
+        Next
+        frmKeywordChange.cnRemoteDatabase.CommitTrans
+        
+        
+        
         Set cThesaurusID = Nothing
-                'iCurrentRecord = rstThesaurusLookup!ThesaurusEquivalentID
-        'Set rstThesaurusLookup = Nothing
-
-    
-        'iThesaurusID = Me.txtAllThesaurusID
         
     End If
-
-    
-        
-        
+                    
     Call Me.Fill_TT_List
     If iIndex >= Me.lstAllThesaurus.ListCount Then iIndex = Me.lstAllThesaurus.ListCount - 1
     Me.lstAllThesaurus.Selected(iIndex) = True
@@ -635,46 +634,17 @@ Private Sub lstThesaurusKeywords_Click()
 
 End Sub
 
-'Private Sub Form_Load()
-
-'    Set rstThesaurusFill = New ADODB.Recordset
-''    Set cKeywordID = New Collection
-'    With rstThesaurusFill
-'        .ActiveConnection = frmKeywordChange.cnDatabase
-'        .CursorType = adOpenKeyset
-'        .LockType = adLockOptimistic
-'        .Open ("SELECT * from tblThesaurusEquivalent")
-'    End With
-'    Call fill_list
-'End Sub
 
 Public Sub Fill_AT_List()
 
-'    Dim iIndex As Integer
-'    iIndex = 0
     Me.lstAllThesaurus.Clear
-    
-    'frmKeywordChange.rstStacks.Requery
-    'If Not frmKeywordChange.rstStacks.EOF Then
-    '    frmKeywordChange.rstStacks.MoveFirst
-    '    Do While Not frmKeywordChange.rstStacks.EOF
-    '        Me.lstAllThesaurus.AddItem frmKeywordChange.rstStacks!StackName
-            'iIndex = rstKeywords!KeywordID
-'   '         cKeywordID.Add iIndex ', iIndex
-    '        frmKeywordChange.rstStacks.MoveNext
-'   '         'iIndex = iIndex + 1
-    '    Loop
-    'End If
     
     frmKeywordChange.rstThesaurus.Requery
     If Not frmKeywordChange.rstThesaurus.EOF Then
         frmKeywordChange.rstThesaurus.MoveFirst
         Do While Not frmKeywordChange.rstThesaurus.EOF
             Me.lstAllThesaurus.AddItem frmKeywordChange.rstThesaurus!ThesaurusEquivalent
-            'iIndex = rstKeywords!KeywordID
-'            cKeywordID.Add iIndex ', iIndex
             frmKeywordChange.rstThesaurus.MoveNext
-'            'iIndex = iIndex + 1
         Loop
     End If
 End Sub
@@ -733,11 +703,12 @@ Private Sub lstThesaurusThesaurus_DblClick()
     Dim iThesaurusID As Integer
     Dim sItem As String
    
-    Set rstQueryThesaurus = New ADODB.Recordset
     iThesaurusID = Me.txtKeywordThesaurusID.Text
     iKeywordID = Me.txtKeywordID.Text
     
     On Error GoTo data_Error
+    
+    Set rstQueryThesaurus = New ADODB.Recordset
     With rstQueryThesaurus
         .CursorLocation = adUseClient
         .ActiveConnection = frmKeywordChange.cnDatabase
@@ -745,17 +716,34 @@ Private Sub lstThesaurusThesaurus_DblClick()
         .LockType = adLockOptimistic
         .Open ("SELECT * from tblKeywordThesaurus WHERE KeywordID=" & iKeywordID & " AND ThesaurusID=" & iThesaurusID)
         '.Open ("SELECT * from qryThesaurus WHERE KeywordID=" & iKeywordID)
-        
     End With
     
     frmKeywordChange.cnDatabase.BeginTrans
-            
         rstQueryThesaurus.Delete
         rstQueryThesaurus.Update
-        
     frmKeywordChange.cnDatabase.CommitTrans
     
     Set rstQueryThesaurus = Nothing
+    
+    Set rstQueryThesaurus = New ADODB.Recordset
+    With rstQueryThesaurus
+        .CursorLocation = adUseClient
+        .ActiveConnection = frmKeywordChange.cnRemoteDatabase
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblKeywordThesaurus WHERE KeywordID=" & iKeywordID & " AND ThesaurusID=" & iThesaurusID)
+        '.Open ("SELECT * from qryThesaurus WHERE KeywordID=" & iKeywordID)
+    End With
+    
+    frmKeywordChange.cnRemoteDatabase.BeginTrans
+        rstQueryThesaurus.Delete
+        rstQueryThesaurus.Update
+    frmKeywordChange.cnRemoteDatabase.CommitTrans
+    
+    
+    Set rstQueryThesaurus = Nothing
+    
+    
     frmKeywordChange.rstKeywordsThesaurus.Requery
     Call Me.Fill_TT_List
     

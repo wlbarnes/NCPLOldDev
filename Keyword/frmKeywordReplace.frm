@@ -198,12 +198,19 @@ Public rstKeywords As ADODB.Recordset
 Public rstThesaurus As ADODB.Recordset
 Public rstStacks As ADODB.Recordset
 Public rstStackJunction As ADODB.Recordset
-
 Public rstKeywordsThesaurus As ADODB.Recordset
-
 Dim rstRecordsKeywords As ADODB.Recordset
+
+Public rstRemoteKeywords As ADODB.Recordset
+Public rstRemoteThesaurus As ADODB.Recordset
+Public rstRemoteStacks As ADODB.Recordset
+Public rstRemoteStackJunction As ADODB.Recordset
+Public rstRemoteKeywordsThesaurus As ADODB.Recordset
+Dim rstRemoteRecordsKeywords As ADODB.Recordset
+
 Public cnDatabase As ADODB.Connection
 Public cnRemoteDatabase As ADODB.Connection
+
 Dim iSelectedKeywordID As Integer
 Dim iToRemoveKeywordID As Integer
 Dim sSelectedKeyword As String
@@ -241,6 +248,29 @@ End Sub
 Private Sub cmdClose_Click()
     Unload Me
 End Sub
+Private Sub Delete_Keyword(cnConnection As Connection, rstKeyword As Recordset, iKeywordNumber As Integer)
+    
+    
+    On Error GoTo data_Error
+    cnConnection.BeginTrans
+        rstKeyword.MoveFirst
+        Do While rstKeyword!KeywordID <> iKeywordNumber
+            rstKeyword.MoveNext
+        Loop
+        rstKeyword.Delete
+        rstKeyword.Update
+    cnConnection.CommitTrans
+data_Error:
+    If Err <> 0 Then
+        Select Case Err
+        Case Else
+            MsgBox "Error#" & Err.Number & ": " & Err.Description, _
+             vbOKOnly + vbCritical, "BuildRecordset"
+             cnConnection.RollbackTrans
+        End Select
+    End If
+End Sub
+
 
 Private Sub cmdDeleteKeyword_Click()
     Dim iMsgBoxResult As Integer
@@ -249,27 +279,11 @@ Private Sub cmdDeleteKeyword_Click()
     'MsgBox iMsgBoxResult
     If iMsgBoxResult = 1 Then
         iKeywordNumber = Me.txtKeywordID
-        On Error GoTo data_Error
-        cnDatabase.BeginTrans
-            rstKeywords.MoveFirst
-            Do While rstKeywords!KeywordID <> iKeywordNumber
-                rstKeywords.MoveNext
-            Loop
-            rstKeywords.Delete
-            rstKeywords.Update
-        cnDatabase.CommitTrans
-        
+        Call Delete_Keyword(cnRemoteDatabase, rstRemoteKeywords, iKeywordNumber)
+        Call Delete_Keyword(cnDatabase, rstKeywords, iKeywordNumber)
         Call Me.Fill_Keyword_List
     End If
-data_Error:
-    If Err <> 0 Then
-        Select Case Err
-        Case Else
-            MsgBox "Error#" & Err.Number & ": " & Err.Description, _
-             vbOKOnly + vbCritical, "BuildRecordset"
-             cnDatabase.RollbackTrans
-        End Select
-    End If
+
 End Sub
 
 Private Sub cmdEditKeyword_Click()
@@ -369,7 +383,6 @@ Private Sub cmdStart_Click()
         End With
         
         Do While Not rstRKTest.EOF
-            'If rstRecordsKeywords!KeywordID = iSelectedKeywordID Then bNoDuplicate = False
             itmpInt = rstRKTest!RecordID
             cRecNums.Add itmpInt
             rstRKTest.MoveNext
@@ -377,40 +390,19 @@ Private Sub cmdStart_Click()
         
         Set rstRKTest = Nothing
         bNoDuplicate = True
-        'If Not rstRecordsKeywords.EOF Then
-            Do While Not rstRecordsKeywords.EOF
-                For i = 1 To cRecNums.Count
-                    If rstRecordsKeywords!RecordID = cRecNums.Item(i) Then bNoDuplicate = False
-                Next
-                If bNoDuplicate Then
-                    rstRecordsKeywords!KeywordID = iSelectedKeywordID
-                    rstRecordsKeywords.Update
-                End If
-                bNoDuplicate = True
-                rstRecordsKeywords.MoveNext
-            Loop
-            If Not rstRecordsKeywords.EOF Then rstRecordsKeywords.MoveFirst
-        'End If
-        
-        'Set cRecNums = Nothing
-'change keyword ID of keyword to be removed to selected keyword; this removes the keyword that was chosen to be removed
-        'Do While Not rstRecordsKeywords.EOF
-            'If bNoDuplicate Then
-            '    rstRecordsKeywords!KeywordID = iSelectedKeywordID
-            '    rstRecordsKeywords.Update
-            'End If
-        '    rstRecordsKeywords.MoveNext
-        'Loop
-        
-        
-        'Do While Not rstRecordsKeywords.EOF
-        '    If bNoDuplicate Then
-        '        rstRecordsKeywords!KeywordID = iSelectedKeywordID
-        '        rstRecordsKeywords.Update
-        '    End If
-        '    rstRecordsKeywords.MoveNext
-        'Loop
-        
+        Do While Not rstRecordsKeywords.EOF
+            For i = 1 To cRecNums.Count
+                If rstRecordsKeywords!RecordID = cRecNums.Item(i) Then bNoDuplicate = False
+            Next
+            If bNoDuplicate Then
+                rstRecordsKeywords!KeywordID = iSelectedKeywordID
+                rstRecordsKeywords.Update
+            End If
+            bNoDuplicate = True
+            rstRecordsKeywords.MoveNext
+        Loop
+        If Not rstRecordsKeywords.EOF Then rstRecordsKeywords.MoveFirst
+                
 'put the thesaurus equivalents of the deleted keyword as thesaurus equivalents of selected keyword
         Set rstKeyWordThesaurusOld = New Recordset
         With rstKeyWordThesaurusOld
@@ -459,9 +451,6 @@ exit_loop1:
                 
             End If
             iThesaurusID = rstThesaurus!ThesaurusEquivalentID
-            'Set rstThesaurus = Nothing
-            
-            'Set rstKeywordsThesaurus = New Recordset
             rstKeywordsThesaurus.Requery
             rstKeywordsThesaurus.MoveFirst
             Do While (Not rstKeywordsThesaurus.EOF)
@@ -474,19 +463,9 @@ exit_loop2:
                     rstKeywordsThesaurus!ThesaurusID = iThesaurusID
                 rstKeywordsThesaurus.Update
             End If
-            'Set rstKeywordsThesaurus = Nothing
         End If
-
     
-        'iSelectedKeywordID = 0
-        'iToRemoveKeywordID = 0
-        'sSelectedKeyword = ""
-        'sToRemoveKeyword = ""
-        'Me.lstThesaurus.Clear
-        'Me.optConvert = False
-        'Me.optDelete = False
         cnDatabase.CommitTrans
-        
         
         Set rstRecordsKeywords = Nothing
 
@@ -500,25 +479,18 @@ exit_loop2:
                 .LockType = adLockOptimistic
                 .Open ("SELECT * from tblKeywords where KeywordID=" & iToRemoveKeywordID)
             End With
-    
-            
-            'rstKeywords.MoveFirst
-            'Do Until rstKeywords!KeywordID = iToRemoveKeywordID
-            '    rstKeywords.MoveNext
-            'Loop
             rstDeleteKeyword.Delete
             rstDeleteKeyword.Update
             iSelectedKeywordID = 0
-        iToRemoveKeywordID = 0
-        sSelectedKeyword = ""
-        sToRemoveKeyword = ""
-        Me.lstThesaurus.Clear
-        Me.optConvert = False
-        Me.optDelete = False
-        
+            iToRemoveKeywordID = 0
+            sSelectedKeyword = ""
+            sToRemoveKeyword = ""
+            Me.lstThesaurus.Clear
+            Me.optConvert = False
+            Me.optDelete = False
+            
         cnDatabase.CommitTrans
         Set rstDeleteKeyword = Nothing
-        'rstKeywords.Requery
         Call Me.Fill_Keyword_List
     End If
 data_Error:
@@ -538,18 +510,16 @@ End Sub
 
 Private Sub Form_Load()
     Dim sConnectionString As String
-    Dim sremoteConnectionString As String
+    Dim sRemoteConnectionString As String
     Set cnDatabase = New Connection
     Set cnRemoteDatabase = New Connection
-    'sConnectionString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=..\database\NCPL.mdb"
-    'sConnectionString = "Provider=SQLOLEDB.1;Password=@boolean;Persist Security Info=True;User ID=dataentry;Initial Catalog=NCPLBETA;Data Source=128.122.192.28"
-    'sConnectionString = "Provider=SQLOLEDB.1;Password=@boolean;Persist Security Info=True;User ID=dataentry;Initial Catalog=NCPLBETA;Data Source=NCPL"
+    
     sConnectionString = "Provider=SQLOLEDB.1;Password=@boolean;Persist Security Info=True;User ID=dataentry;Initial Catalog=NCPLLive;Data Source=NCPL"
-    sremoteConnectionString = "Provider=SQLOLEDB.1;Data Source=awssqldev.nyulaw.me;Initial Catalog=NCPLLive;User Id=barnesw;Password=philly"
-    
-    
-    
+    sRemoteConnectionString = "Provider=SQLOLEDB.1;Data Source=awssqldev.nyulaw.me;Initial Catalog=NCPLLive;User Id=barnesw;Password=philly"
+            
     cnDatabase.Open (sConnectionString)
+    cnRemoteDatabase.Open (sRemoteConnectionString)
+    
     Set rstKeywords = New ADODB.Recordset
     With rstKeywords
         .CursorLocation = adUseClient
@@ -604,7 +574,60 @@ Private Sub Form_Load()
         .Open ("SELECT * from tblThesaurusStackJunction")
     End With
         
+    Set rstRemoteKeywords = New ADODB.Recordset
+    With rstRemoteKeywords
+        .CursorLocation = adUseClient
+        .ActiveConnection = cnRemoteDatabase
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblKeywords")
+    End With
+    
+    Set rstRemoteThesaurus = New Recordset
+    With rstRemoteThesaurus
+        .CursorLocation = adUseClient
+        .ActiveConnection = cnRemoteDatabase
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblThesaurusEquivalent")
+    End With
+    
+    Set rstRemoteKeywordsThesaurus = New Recordset
+    With rstRemoteKeywordsThesaurus
+        .CursorLocation = adUseClient
+        .ActiveConnection = cnRemoteDatabase
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblKeywordThesaurus")
+    End With
+    
+    Set rstRemoteThesaurus = New Recordset
+    With rstRemoteThesaurus
+        .CursorLocation = adUseClient
+        .ActiveConnection = cnRemoteDatabase
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblThesaurusEquivalent")
+    End With
+    
+    Set rstRemoteStacks = New Recordset
+    With rstRemoteStacks
+        .CursorLocation = adUseClient
+        .ActiveConnection = cnRemoteDatabase
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblThesaurusStack")
+    End With
         
+    Set rstRemoteStackJunction = New Recordset
+    With rstRemoteStackJunction
+        .CursorLocation = adUseClient
+        .ActiveConnection = cnRemoteDatabase
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblThesaurusStackJunction")
+    End With
+                            
     Call Fill_Keyword_List
 End Sub
 
@@ -612,9 +635,17 @@ End Sub
 Private Sub Form_Unload(Cancel As Integer)
     Set rstKeywords = Nothing
     Set rstThesaurus = Nothing
+    Set rstKeywordsThesaurus = Nothing
+    
+    Set rstRemoteKeywords = Nothing
+    Set rstRemoteThesaurus = Nothing
+    Set rstRemoteKeywordsThesaurus = Nothing
+    
+    
     Set cnDatabase = Nothing
     Set cnRemoteDatabase = Nothing
-    Set rstKeywordsThesaurus = Nothing
+    
+    
     Call frmMain.Populate_Keyword_List
 End Sub
 
@@ -860,5 +891,6 @@ Public Function Bill_Replace(sString As String, sStringToReplace As String, sRep
         Loop
         Bill_Replace = sString
 End Function
+
 
 

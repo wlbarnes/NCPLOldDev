@@ -89,6 +89,8 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Public rstThesaurusFill As ADODB.Recordset
+Public rstRemoteThesaurusFill As ADODB.Recordset
+
 Dim rstThesaurusLookup As ADODB.Recordset
 Dim iCurrentRecord As String
 
@@ -100,7 +102,7 @@ Private Sub cmdAddThesaurus_Click()
 End Sub
 
 Private Sub cmdCheck_Click()
-    Me.Hide
+    Unload Me
     frmKeywordThesaurusChange.Show
     Call frmKeywordThesaurusChange.Fill_KT_List
 End Sub
@@ -111,16 +113,27 @@ Private Sub cmdDeleteThesaurus_Click()
     Else
         On Error GoTo data_Error
         Call Get_Current_RecNum
+        
         rstThesaurusFill.MoveFirst
         Do While rstThesaurusFill!ThesaurusEquivalentID <> iCurrentRecord
             rstThesaurusFill.MoveNext
         Loop
+        
+        rstRemoteThesaurusFill.Find ("ThesaurusEquivalentID = " & Str(iCurrentRecord))
+        
         frmKeywordChange.cnDatabase.BeginTrans
             rstThesaurusFill.Delete
             rstThesaurusFill.Update
         frmKeywordChange.cnDatabase.CommitTrans
+        
+        frmKeywordChange.cnRemoteDatabase.BeginTrans
+            rstRemoteThesaurusFill.Delete
+            rstRemoteThesaurusFill.Update
+        frmKeywordChange.cnRemoteDatabase.CommitTrans
+        
+        
         Call Me.fill_list
-        Call frmKeywordThesaurusChange.Fill_TT_List
+        'Call frmKeywordThesaurusChange.Fill_TT_List
     End If
     
 data_Error:
@@ -165,6 +178,8 @@ End Sub
 Private Sub Form_Load()
 
     Set rstThesaurusFill = New ADODB.Recordset
+    Set rstRemoteThesaurusFill = New ADODB.Recordset
+
 '    Set cKeywordID = New Collection
     With rstThesaurusFill
         .ActiveConnection = frmKeywordChange.cnDatabase
@@ -173,13 +188,21 @@ Private Sub Form_Load()
         .LockType = adLockOptimistic
         .Open ("SELECT * from tblThesaurusEquivalent")
     End With
+    
+    
+    With rstRemoteThesaurusFill
+        .ActiveConnection = frmKeywordChange.cnRemoteDatabase
+        .CursorLocation = adUseClient
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblThesaurusEquivalent")
+    End With
+    
+    
     Call fill_list
 End Sub
 
 Public Sub fill_list()
-
-'    Dim iIndex As Integer
-'    iIndex = 0
     lstThesaurus.Clear
     rstThesaurusFill.Requery
     rstThesaurusFill.MoveFirst
@@ -187,16 +210,14 @@ Public Sub fill_list()
         rstThesaurusFill.MoveFirst
         Do While Not rstThesaurusFill.EOF
             lstThesaurus.AddItem rstThesaurusFill!ThesaurusEquivalent
-            'iIndex = rstKeywords!KeywordID
-'            cKeywordID.Add iIndex ', iIndex
             rstThesaurusFill.MoveNext
-'            'iIndex = iIndex + 1
         Loop
     End If
 End Sub
 
 Private Sub Form_Unload(Cancel As Integer)
     Set rstThesaurusFill = Nothing
+    Set rstRemoteThesaurusFill = Nothing
 End Sub
 
 Private Sub Get_Current_RecNum()

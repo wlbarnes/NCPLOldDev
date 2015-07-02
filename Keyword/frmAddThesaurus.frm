@@ -47,47 +47,63 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Private Sub cmdAdd_Click()
-'Dim rstThesaurusLookup As ADODB.Recordset
 Dim sTempstr As String
 
 On Error GoTo data_Error
 
 If Me.Caption = "Add Thesaurus Equivalent" Then
     sTempstr = Me.txtThesaurus.Text
+    
+    frmKeywordChange.cnRemoteDatabase.BeginTrans
+        frmThesaurusEntry.rstRemoteThesaurusFill.AddNew
+        frmThesaurusEntry.rstRemoteThesaurusFill!ThesaurusEquivalent = sTempstr
+        frmThesaurusEntry.rstRemoteThesaurusFill.Update
+    frmKeywordChange.cnRemoteDatabase.CommitTrans
+    
+    
     frmKeywordChange.cnDatabase.BeginTrans
         frmThesaurusEntry.rstThesaurusFill.AddNew
-                frmThesaurusEntry.rstThesaurusFill!ThesaurusEquivalent = sTempstr
+        frmThesaurusEntry.rstThesaurusFill!ThesaurusEquivalent = sTempstr
         frmThesaurusEntry.rstThesaurusFill.Update
-            'frmEditThesaurus.rstThesaurusEq.AddNew
-            '    frmEditThesaurus.rstThesaurusEq!ThesaurusEquivalent = sTempstr
-            'frmEditThesaurus.rstThesaurusEq.Update
     frmKeywordChange.cnDatabase.CommitTrans
+    
+    
     Me.txtThesaurus.Text = ""
     Call frmThesaurusEntry.fill_list
-    'Call frmKeywordThesaurusChange.Fill_TT_List
-    'Call frmStackEntry.Fill_ST_List
     frmThesaurusEntry.lstThesaurus.Text = sTempstr
-    'Call frmEditThesaurus.Fill_Thesaurus_Combo
-    'frmEditThesaurus.cmbThesaurusEquiv.Text = sTempstr
     Me.txtThesaurus.SetFocus
 End If
 
 If Me.Caption = "Edit Thesaurus Equivalent" Then
     sTempstr = Me.txtThesaurus.Text
+    
     frmThesaurusEntry.rstThesaurusFill.MoveFirst
     Do While frmThesaurusEntry.rstThesaurusFill!ThesaurusEquivalentID <> Me.txtRecNum.Text
         frmThesaurusEntry.rstThesaurusFill.MoveNext
     Loop
+    
+    frmThesaurusEntry.rstRemoteThesaurusFill.MoveFirst
+    Do While frmThesaurusEntry.rstRemoteThesaurusFill!ThesaurusEquivalentID <> Me.txtRecNum.Text
+        frmThesaurusEntry.rstRemoteThesaurusFill.MoveNext
+    Loop
+        
+    frmKeywordChange.cnRemoteDatabase.BeginTrans
+        frmThesaurusEntry.rstRemoteThesaurusFill!ThesaurusEquivalent = sTempstr
+        frmThesaurusEntry.rstRemoteThesaurusFill.Update
+    frmKeywordChange.cnRemoteDatabase.CommitTrans
+    
     frmKeywordChange.cnDatabase.BeginTrans
         frmThesaurusEntry.rstThesaurusFill!ThesaurusEquivalent = sTempstr
         frmThesaurusEntry.rstThesaurusFill.Update
     frmKeywordChange.cnDatabase.CommitTrans
+    
+    
     Me.txtThesaurus.Text = ""
     Call frmThesaurusEntry.fill_list
-    'Call frmStackEntry.Fill_ST_List
-    'Call frmKeywordThesaurusChange.Fill_TT_List
     Me.Hide
 End If
+
+'Next two Ifs do not do anything??
 
 If Me.Caption = "Add Thesaurus Stack" Then
     sTempstr = Me.txtThesaurus.Text
@@ -96,18 +112,11 @@ If Me.Caption = "Add Thesaurus Stack" Then
         frmKeywordChange.rstStacks.AddNew
                 frmKeywordChange.rstStacks!StackName = sTempstr
         frmKeywordChange.rstStacks.Update
-            'frmEditThesaurus.rstThesaurusEq.AddNew
-            '    frmEditThesaurus.rstThesaurusEq!ThesaurusEquivalent = sTempstr
-            'frmEditThesaurus.rstThesaurusEq.Update
     frmKeywordChange.cnDatabase.CommitTrans
     Me.txtThesaurus.Text = "**"
-    
-    'Call frmKeywordThesaurusChange.Fill_TT_List
     Call frmStackEntry.Fill_Stack_List
     Call frmStackEntry.Fill_ST_List
     frmStackEntry.lstStacks.Text = sTempstr
-    'Call frmEditThesaurus.Fill_Thesaurus_Combo
-    'frmEditThesaurus.cmbThesaurusEquiv.Text = sTempstr
     Me.txtThesaurus.SetFocus
 End If
 
@@ -125,8 +134,6 @@ If Me.Caption = "Edit Thesaurus Stack" Then
     Me.txtThesaurus.Text = ""
     Call frmStackEntry.Fill_Stack_List
     Call frmStackEntry.Fill_ST_List
-    
-    'Call frmKeywordThesaurusChange.Fill_TT_List
     Me.Hide
 End If
 

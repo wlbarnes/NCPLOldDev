@@ -38,53 +38,87 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-
-Private Sub cmdAdd_Click()
+Private Sub Save_Keyword(rstKeyword As Recordset, cnConnection As Connection)
+    Dim OldKeywordName As String
+    Dim bigIndex As Recordset
+    Dim oldKeywordString As String
+    Dim newKeywordString As String
+    
+    OldKeywordName = frmKeywordChange.lstKeywords.List(frmKeywordChange.lstKeywords.ListIndex)
+        
+    Set bigIndex = New ADODB.Recordset
+    With bigIndex
+        .CursorLocation = adUseClient
+        .ActiveConnection = cnConnection
+        .CursorType = adOpenKeyset
+        .LockType = adLockOptimistic
+        .Open ("SELECT * from tblBigTextIndex WHERE CONTAINS(AllKeywords, '" & OldKeywordName & "')")
+    End With
+    'bigIndex.Find ("CONTAINS(AllKeywords, '" & OldKeywordName & "')")
+    
+    Do While Not bigIndex.EOF
+        oldKeywordString = bigIndex!AllKeywords
+        newKeywordString = Replace(oldKeywordString, OldKeywordName, Me.txtKeyword.Text)
+         cnConnection.BeginTrans
+            On Error GoTo data_Error
+            bigIndex!AllKeywords = newKeywordString
+            bigIndex.Update
+        cnConnection.CommitTrans
+        bigIndex.MoveNext
+    Loop
+    
+    
     If Me.cmdAdd.Caption = "Edit" Then
         frmKeywordChange.lstKeywords.List(frmKeywordChange.lstKeywords.ListIndex) = Me.txtKeyword.Text
-        frmKeywordChange.rstKeywords.MoveFirst
-        Do Until frmKeywordChange.rstKeywords!KeywordID = frmKeywordChange.txtKeywordID
-            frmKeywordChange.rstKeywords.MoveNext
+        rstKeyword.MoveFirst
+        Do Until rstKeyword!KeywordID = frmKeywordChange.txtKeywordID
+            rstKeyword.MoveNext
         Loop
         
-        frmKeywordChange.cnDatabase.BeginTrans
-        On Error GoTo data_Error
-        frmKeywordChange.rstKeywords!KeywordOrCodeSection = Me.txtKeyword.Text
-        frmKeywordChange.rstKeywords.Update
-        frmKeywordChange.cnDatabase.CommitTrans
-        Call frmKeywordChange.Fill_Keyword_List
-        Me.Hide
+        cnConnection.BeginTrans
+            On Error GoTo data_Error
+            rstKeyword!KeywordOrCodeSection = Me.txtKeyword.Text
+            rstKeyword.Update
+        cnConnection.CommitTrans
+        
     End If
     If Me.cmdAdd.Caption = "Add" Then
-        frmKeywordChange.cnDatabase.BeginTrans
-        On Error GoTo data_Error
-        frmKeywordChange.rstKeywords.AddNew
-            frmKeywordChange.rstKeywords!KeywordOrCodeSection = Me.txtKeyword.Text
-        frmKeywordChange.rstKeywords.Update
-        frmKeywordChange.cnDatabase.CommitTrans
-        Call frmKeywordChange.Fill_Keyword_List
-        frmKeywordChange.lstKeywords.Text = Me.txtKeyword.Text
-        Me.Hide
+        cnConnection.BeginTrans
+            On Error GoTo data_Error
+            rstKeyword.AddNew
+            rstKeyword!KeywordOrCodeSection = Me.txtKeyword.Text
+            rstKeyword.Update
+        cnConnection.CommitTrans
     End If
-    
+    Set bigIndex = Nothing
 data_Error:
     If Err <> 0 Then
         Select Case Err
         Case Else
             MsgBox "Error#" & Err.Number & ": " & Err.Description, _
              vbOKOnly + vbCritical, "Editing Keyword"
-             frmKeywordChange.rstKeywords.CancelUpdate
+             rstKeyword.CancelUpdate
              
-             frmKeywordChange.cnDatabase.RollbackTrans
+             cnConnection.RollbackTrans
              Me.Hide
              Exit Sub
              
              'Resume Next
         End Select
     End If
+End Sub
+
+Private Sub cmdAdd_Click()
+    Call Save_Keyword(frmKeywordChange.rstRemoteKeywords, frmKeywordChange.cnRemoteDatabase)
+    Call Save_Keyword(frmKeywordChange.rstKeywords, frmKeywordChange.cnDatabase)
+    
+    Call frmKeywordChange.Fill_Keyword_List
+    If Me.cmdAdd.Caption = "Add" Then frmKeywordChange.lstKeywords.Text = Me.txtKeyword.Text
+    Me.Hide
 
 End Sub
 
 Private Sub cmdCancel_Click()
     Me.Hide
 End Sub
+
